@@ -44,6 +44,10 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("border: 0;");
     expect(html).toContain("border-radius: 0;");
     expect(html).toContain("width: 100%;");
+    expect(html).toContain("--paper: #fbfdff;");
+    expect(html).toContain("background: #edf3f6;");
+    expect(html).toContain("linear-gradient(180deg, rgba(251, 253, 255, 0.985), rgba(247, 250, 252, 0.985))");
+    expect(html).not.toContain("#ede8dc");
     expect(html).toContain("<strong>Alice</strong>");
     expect(html).toContain('<span class="format-pill">Discord</span>');
     expect(html).not.toContain("#announcements");
