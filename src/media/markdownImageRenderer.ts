@@ -69,6 +69,7 @@ export class MarkdownImageRenderer {
 export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">) {
   const renderedBody = markdown.render(message.rawMarkdown.trim());
   const timestamp = formatTimestamp(message.createdAt);
+  const authorInitials = getAuthorInitials(message.authorName);
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -77,62 +78,123 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
   <style>
     :root {
       color-scheme: light;
-      font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-      color: #25231f;
-      background: #f1eddf;
+      --ink: #20211f;
+      --muted: #6d6658;
+      --paper: #fffdf7;
+      --paper-soft: #f5efe4;
+      --line: #d8ccba;
+      --teal: #17453e;
+      --teal-soft: #e1eee9;
+      --gold: #d49a2d;
+      --red: #8f3f34;
+      font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--ink);
+      background: #ede8dc;
     }
     * {
       box-sizing: border-box;
     }
     body {
       margin: 0;
-      padding: 32px;
+      padding: 28px;
       width: 960px;
-      background: #f1eddf;
+      background:
+        linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        #ede8dc;
+      background-size: 28px 28px;
     }
     .card {
-      width: 896px;
+      position: relative;
+      width: 904px;
       overflow: hidden;
-      border: 1px solid #cfc5b2;
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fbfaf5;
-      box-shadow: 10px 12px 0 #17453e;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
+        repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
+    }
+    .card::before {
+      content: "";
+      display: block;
+      height: 7px;
+      background: linear-gradient(90deg, var(--teal), #2e7d5b 58%, var(--gold));
     }
     .header {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 18px;
-      padding: 18px 22px;
-      border-bottom: 1px solid #ddd2bd;
-      background: #24231f;
-      color: #f5efe2;
+      grid-template-columns: 54px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 20px 26px 18px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #fffdf7, #f7f1e7);
+      color: var(--ink);
+    }
+    .avatar {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(23, 69, 62, 0.24);
+      border-radius: 8px;
+      background: var(--teal);
+      color: #fff8e6;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
     }
     .header strong,
     .header span {
       display: block;
     }
     .header strong {
-      font-size: 20px;
-      line-height: 1.2;
+      font-size: 22px;
+      line-height: 1.15;
       overflow-wrap: anywhere;
     }
-    .header span {
-      margin-top: 5px;
-      color: #cfc5b2;
-      font-size: 13px;
-      overflow-wrap: anywhere;
-    }
-    .time {
-      align-self: start;
-      color: #f0c75e;
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 7px;
+      color: var(--muted);
       font-size: 13px;
       font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .meta-line .source-pill,
+    .meta-line .format-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(23, 69, 62, 0.18);
+      background: var(--teal-soft);
+      color: var(--teal);
+      max-width: 460px;
+      overflow-wrap: anywhere;
+    }
+    .meta-line .format-pill {
+      border-color: rgba(212, 154, 45, 0.28);
+      background: #fff1cc;
+      color: #744714;
+    }
+    .time {
+      align-self: center;
+      padding-left: 18px;
+      border-left: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
       white-space: nowrap;
     }
     .content {
-      padding: 24px 26px 28px;
+      padding: 28px 32px 34px;
       font-size: 18px;
-      line-height: 1.58;
+      line-height: 1.64;
       overflow-wrap: anywhere;
     }
     .content > :first-child {
@@ -144,18 +206,34 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
     h1,
     h2,
     h3 {
-      margin: 22px 0 12px;
+      position: relative;
+      margin: 26px 0 14px;
       line-height: 1.22;
       letter-spacing: 0;
+      color: #1f2a27;
     }
     h1 {
-      font-size: 30px;
+      padding-left: 14px;
+      font-size: 32px;
     }
     h2 {
-      font-size: 25px;
+      padding-left: 12px;
+      font-size: 26px;
     }
     h3 {
       font-size: 21px;
+      color: var(--teal);
+    }
+    h1::before,
+    h2::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.12em;
+      bottom: 0.12em;
+      width: 5px;
+      border-radius: 999px;
+      background: var(--gold);
     }
     p,
     ul,
@@ -163,17 +241,24 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
     blockquote,
     pre,
     table {
-      margin: 14px 0;
+      margin: 16px 0;
+    }
+    p {
+      color: #2c2a25;
     }
     ul,
     ol {
-      padding-left: 28px;
+      padding-left: 31px;
     }
     li + li {
-      margin-top: 6px;
+      margin-top: 7px;
+    }
+    li::marker {
+      color: var(--gold);
+      font-weight: 900;
     }
     a {
-      color: #0f5b7c;
+      color: #126281;
       font-weight: 700;
       text-decoration: underline;
       text-underline-offset: 3px;
@@ -181,18 +266,32 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
     code {
       padding: 2px 6px;
       border-radius: 5px;
-      background: #ece4d6;
-      color: #7d2f25;
+      background: #efe6d6;
+      color: var(--red);
       font-family: "Cascadia Mono", "Consolas", monospace;
       font-size: 0.9em;
     }
     pre {
       overflow-x: auto;
-      padding: 15px 16px;
-      border-radius: 7px;
+      position: relative;
+      padding: 42px 18px 18px;
+      border: 1px solid #171817;
+      border-radius: 8px;
       background: #20211f;
-      color: #f5efe2;
+      color: #f8f3e8;
       white-space: pre-wrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    pre::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 15px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #d66b5d;
+      box-shadow: 17px 0 #e7b95a, 34px 0 #65b37a;
     }
     pre code {
       padding: 0;
@@ -202,33 +301,59 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
     }
     blockquote {
       margin-left: 0;
-      padding: 3px 0 3px 16px;
-      border-left: 5px solid #f0c75e;
+      padding: 12px 16px 12px 18px;
+      border-left: 5px solid var(--gold);
+      border-radius: 0 8px 8px 0;
+      background: #fff8e6;
       color: #5b523f;
+    }
+    blockquote > :first-child {
+      margin-top: 0;
+    }
+    blockquote > :last-child {
+      margin-bottom: 0;
     }
     table {
       width: 100%;
-      border-collapse: collapse;
+      overflow: hidden;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
       font-size: 16px;
     }
     th,
     td {
-      padding: 9px 10px;
-      border: 1px solid #d8cfbd;
+      padding: 10px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
       text-align: left;
       vertical-align: top;
     }
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+    tr:last-child td {
+      border-bottom: 0;
+    }
     th {
-      background: #ece4d6;
+      background: #efe6d6;
       color: #4c4435;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    tr:nth-child(even) td {
+      background: #faf6ed;
     }
     .markdown-image-ref {
       display: inline-block;
-      padding: 2px 8px;
-      border: 1px solid #c8beaa;
-      border-radius: 5px;
-      background: #f4efe5;
-      color: #706650;
+      padding: 3px 9px;
+      border: 1px solid rgba(23, 69, 62, 0.2);
+      border-radius: 999px;
+      background: var(--teal-soft);
+      color: var(--teal);
       font-size: 0.9em;
       font-weight: 700;
     }
@@ -237,9 +362,13 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
 <body>
   <article class="card" data-markdown-card>
     <header class="header">
+      <div class="avatar">${escapeHtml(authorInitials)}</div>
       <div>
         <strong>${escapeHtml(message.authorName)}</strong>
-        <span>#${escapeHtml(message.sourceName)}</span>
+        <div class="meta-line">
+          <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
+          <span class="format-pill">Discord Markdown</span>
+        </div>
       </div>
       <div class="time">${escapeHtml(timestamp)}</div>
     </header>
@@ -318,6 +447,24 @@ function formatTimestamp(value: string) {
     second: "2-digit",
     hour12: false
   }).format(date);
+}
+
+function getAuthorInitials(value: string) {
+  const compact = value.trim();
+  if (compact.length === 0) {
+    return "DC";
+  }
+
+  const asciiWords = compact.match(/[a-zA-Z0-9]+/g);
+  if (asciiWords && asciiWords.length > 0) {
+    return asciiWords
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() ?? "")
+      .join("")
+      .slice(0, 2);
+  }
+
+  return Array.from(compact).slice(0, 2).join("");
 }
 
 function escapeHtml(value: string) {
