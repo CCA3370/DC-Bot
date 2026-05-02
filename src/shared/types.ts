@@ -32,6 +32,7 @@ export interface NormalizedDiscordMessage {
   authorId: string;
   authorName: string;
   createdAt: string;
+  rawMarkdown: string;
   text: string;
   images: NormalizedImageAttachment[];
 }
@@ -114,5 +115,7 @@ export interface ProcessedImageAsset {
 
 export interface PreparedBridgePayload {
   message: NormalizedDiscordMessage;
+  translatedText: string | null;
+  markdownImage: ProcessedImageAsset | null;
   images: ProcessedImageAsset[];
 }

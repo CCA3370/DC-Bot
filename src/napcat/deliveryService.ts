@@ -55,6 +55,8 @@ export class DeliveryService {
 
     const payload = {
       message,
+      translatedText: null,
+      markdownImage: null,
       images: await this.imageProcessor.prepareImages(message)
     };
 

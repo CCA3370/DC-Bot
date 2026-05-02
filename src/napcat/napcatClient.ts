@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { AppConfig } from "../shared/config.js";
-import type { NapCatGroup, PreparedBridgePayload } from "../shared/types.js";
+import type { NapCatGroup, PreparedBridgePayload, ProcessedImageAsset } from "../shared/types.js";
 
 export type OneBotMessageSegment =
   | { type: "text"; data: { text: string } }
@@ -118,15 +118,26 @@ function parseGroupRow(row: unknown): NapCatGroup {
 
 export async function buildForwardNodes(payload: PreparedBridgePayload): Promise<OneBotForwardNode[]> {
   const nodes: OneBotForwardNode[] = [];
-  const text = payload.message.text.trim();
+  const translatedText = payload.translatedText?.trim() ?? "";
 
-  if (text.length > 0) {
+  if (translatedText.length > 0) {
     nodes.push({
       type: "node",
       data: {
         name: payload.message.authorName,
         uin: "10000",
-        content: [{ type: "text", data: { text } }]
+        content: [{ type: "text", data: { text: translatedText } }]
+      }
+    });
+  }
+
+  if (payload.markdownImage) {
+    nodes.push({
+      type: "node",
+      data: {
+        name: payload.message.sourceName,
+        uin: "10000",
+        content: [await buildImageSegment(payload.markdownImage)]
       }
     });
   }
@@ -134,13 +145,7 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
   if (payload.images.length > 0) {
     const content: OneBotMessageSegment[] = [];
     for (const image of payload.images) {
-      const file = await readFile(image.filePath);
-      content.push({
-        type: "image",
-        data: {
-          file: `base64://${file.toString("base64")}`
-        }
-      });
+      content.push(await buildImageSegment(image));
     }
 
     nodes.push({
@@ -154,4 +159,14 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
   }
 
   return nodes;
+}
+
+async function buildImageSegment(image: ProcessedImageAsset): Promise<OneBotMessageSegment> {
+  const file = await readFile(image.filePath);
+  return {
+    type: "image",
+    data: {
+      file: `base64://${file.toString("base64")}`
+    }
+  };
 }

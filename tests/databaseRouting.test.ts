@@ -51,9 +51,12 @@ describe("AppDatabase routing and delivery jobs", () => {
         authorId: "author-1",
         authorName: "Alice",
         createdAt: new Date(0).toISOString(),
+        rawMarkdown: "hello",
         text: "hello",
         images: []
       },
+      translatedText: null,
+      markdownImage: null,
       images: []
     };
 
