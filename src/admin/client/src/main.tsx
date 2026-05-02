@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Trash2
 } from "lucide-react";
-import type { ChannelRouteView, DeliveryJob, DiscordSource, EventLogEntry, QqGroup } from "../../../shared/types";
+import type { ChannelRouteView, DeliveryJob, DiscordSource, EventLogEntry, NapCatGroup, QqGroup } from "../../../shared/types";
 import { api } from "./apiClient";
 import "./styles.css";
 
@@ -49,6 +49,7 @@ function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [channels, setChannels] = useState<DiscordSource[]>([]);
   const [groups, setGroups] = useState<QqGroup[]>([]);
+  const [napcatGroups, setNapcatGroups] = useState<NapCatGroup[]>([]);
   const [routes, setRoutes] = useState<ChannelRouteView[]>([]);
   const [jobs, setJobs] = useState<DeliveryJob[]>([]);
   const [logs, setLogs] = useState<EventLogEntry[]>([]);
@@ -57,7 +58,8 @@ function App() {
   const [guildForm, setGuildForm] = useState("");
   const [napcatForm, setNapcatForm] = useState({ endpoint: "", accessToken: "", clearAccessToken: false });
   const [groupForm, setGroupForm] = useState({ groupId: "", name: "" });
-  const [routeForm, setRouteForm] = useState({ sourceId: "", qqGroupId: "" });
+  const [selectedNapCatGroupId, setSelectedNapCatGroupId] = useState("");
+  const [routeForm, setRouteForm] = useState<{ sourceId: string; qqGroupIds: number[] }>({ sourceId: "", qqGroupIds: [] });
   const [testForm, setTestForm] = useState({ groupId: "", text: "DC-Bot 测试消息" });
 
   useEffect(() => {
@@ -73,6 +75,11 @@ function App() {
 
   const activeChannels = useMemo(() => channels.filter((channel) => channel.isActive), [channels]);
   const activeGroups = useMemo(() => groups.filter((group) => group.isActive), [groups]);
+  const configuredGroupIds = useMemo(() => new Set(groups.map((group) => group.groupId)), [groups]);
+  const importableNapCatGroups = useMemo(
+    () => napcatGroups.filter((group) => !configuredGroupIds.has(group.groupId)),
+    [configuredGroupIds, napcatGroups]
+  );
 
   async function reloadAll() {
     setBusy(true);
@@ -166,6 +173,57 @@ function App() {
     }, "QQ群配置已保存");
   }
 
+  async function fetchNapCatGroups() {
+    const response = await api<{ groups: NapCatGroup[] }>("/api/napcat/groups");
+    setNapcatGroups(response.groups);
+    return response.groups;
+  }
+
+  async function loadNapCatGroups() {
+    await mutate(async () => {
+      await fetchNapCatGroups();
+    }, "已获取当前 NapCat QQ群列表");
+  }
+
+  async function importNapCatGroups(groupsToImport: NapCatGroup[]) {
+    if (groupsToImport.length === 0) {
+      return;
+    }
+
+    const response = await api<{ groups: QqGroup[] }>("/api/groups/import", {
+      method: "POST",
+      body: JSON.stringify({
+        groups: groupsToImport.map((group) => ({
+          groupId: group.groupId,
+          name: group.name,
+          isActive: true
+        }))
+      })
+    });
+    setGroups(response.groups);
+    setSelectedNapCatGroupId("");
+  }
+
+  async function importSelectedNapCatGroup() {
+    await mutate(async () => {
+      const selectedGroup = napcatGroups.find((group) => group.groupId === selectedNapCatGroupId);
+      if (!selectedGroup) {
+        throw new Error("请选择要添加的QQ群");
+      }
+      await importNapCatGroups([selectedGroup]);
+      await reloadAll();
+    }, "QQ群已添加");
+  }
+
+  async function importAllNapCatGroups() {
+    await mutate(async () => {
+      const groupsFromNapCat = napcatGroups.length > 0 ? napcatGroups : await fetchNapCatGroups();
+      const groupsToImport = groupsFromNapCat.filter((group) => !configuredGroupIds.has(group.groupId));
+      await importNapCatGroups(groupsToImport);
+      await reloadAll();
+    }, "当前 NapCat QQ群已导入");
+  }
+
   async function toggleGroup(group: QqGroup) {
     await mutate(async () => {
       const response = await api<{ groups: QqGroup[] }>(`/api/groups/${group.id}`, {
@@ -179,18 +237,27 @@ function App() {
 
   async function saveRoute() {
     await mutate(async () => {
-      const response = await api<{ routes: ChannelRouteView[] }>("/api/routes", {
+      const response = await api<{ routes: ChannelRouteView[] }>("/api/routes/bulk", {
         method: "POST",
         body: JSON.stringify({
           sourceId: routeForm.sourceId,
-          qqGroupId: Number(routeForm.qqGroupId),
+          qqGroupIds: routeForm.qqGroupIds,
           isActive: true
         })
       });
       setRoutes(response.routes);
-      setRouteForm({ sourceId: "", qqGroupId: "" });
+      setRouteForm({ sourceId: "", qqGroupIds: [] });
       await reloadAll();
     }, "路由已保存");
+  }
+
+  function toggleRouteGroup(groupId: number) {
+    setRouteForm((current) => ({
+      ...current,
+      qqGroupIds: current.qqGroupIds.includes(groupId)
+        ? current.qqGroupIds.filter((value) => value !== groupId)
+        : [...current.qqGroupIds, groupId]
+    }));
   }
 
   async function toggleRoute(route: ChannelRouteView) {
@@ -431,15 +498,40 @@ function App() {
             <section className="table-panel">
               <div className="section-head">
                 <h2>QQ群</h2>
+                <button onClick={() => void loadNapCatGroups()} disabled={busy}>
+                  <RefreshCw size={17} />
+                  获取群列表
+                </button>
               </div>
-              <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
-                <input placeholder="QQ群号" value={groupForm.groupId} onChange={(event) => setGroupForm({ ...groupForm, groupId: event.target.value })} />
-                <input placeholder="显示名称" value={groupForm.name} onChange={(event) => setGroupForm({ ...groupForm, name: event.target.value })} />
-                <button onClick={() => void saveGroup()} disabled={busy || !groupForm.groupId || !groupForm.name}>
+              <form className="group-import-form" onSubmit={(event) => event.preventDefault()}>
+                <select value={selectedNapCatGroupId} onChange={(event) => setSelectedNapCatGroupId(event.target.value)}>
+                  <option value="">从 NapCat 当前 QQ群中选择</option>
+                  {importableNapCatGroups.map((group) => (
+                    <option key={group.groupId} value={group.groupId}>
+                      {group.name} ({group.groupId})
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => void importSelectedNapCatGroup()} disabled={busy || !selectedNapCatGroupId}>
                   <Plus size={17} />
-                  保存
+                  添加选中
+                </button>
+                <button onClick={() => void importAllNapCatGroups()} disabled={busy}>
+                  <RefreshCw size={17} />
+                  导入全部
                 </button>
               </form>
+              <details className="manual-group">
+                <summary>手动添加QQ群</summary>
+                <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
+                  <input placeholder="QQ群号" value={groupForm.groupId} onChange={(event) => setGroupForm({ ...groupForm, groupId: event.target.value })} />
+                  <input placeholder="显示名称" value={groupForm.name} onChange={(event) => setGroupForm({ ...groupForm, name: event.target.value })} />
+                  <button onClick={() => void saveGroup()} disabled={busy || !groupForm.groupId || !groupForm.name}>
+                    <Plus size={17} />
+                    保存
+                  </button>
+                </form>
+              </details>
               <div className="list">
                 {groups.map((group) => (
                   <div className="list-row" key={group.id}>
@@ -459,7 +551,7 @@ function App() {
               <div className="section-head">
                 <h2>频道到群路由</h2>
               </div>
-              <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
+              <form className="route-form" onSubmit={(event) => event.preventDefault()}>
                 <select value={routeForm.sourceId} onChange={(event) => setRouteForm({ ...routeForm, sourceId: event.target.value })}>
                   <option value="">选择来源</option>
                   {activeChannels.map((channel) => (
@@ -468,19 +560,26 @@ function App() {
                     </option>
                   ))}
                 </select>
-                <select value={routeForm.qqGroupId} onChange={(event) => setRouteForm({ ...routeForm, qqGroupId: event.target.value })}>
-                  <option value="">选择QQ群</option>
-                  {activeGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-                <button onClick={() => void saveRoute()} disabled={busy || !routeForm.sourceId || !routeForm.qqGroupId}>
+                <button onClick={() => void saveRoute()} disabled={busy || !routeForm.sourceId || routeForm.qqGroupIds.length === 0}>
                   <Plus size={17} />
                   保存
                 </button>
               </form>
+              <div className="choice-grid">
+                {activeGroups.map((group) => (
+                  <label className="choice-row" key={group.id}>
+                    <input
+                      checked={routeForm.qqGroupIds.includes(group.id)}
+                      onChange={() => toggleRouteGroup(group.id)}
+                      type="checkbox"
+                    />
+                    <span>
+                      <strong>{group.name}</strong>
+                      <small>{group.groupId}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
               <div className="list">
                 {routes.map((route) => (
                   <div className="list-row" key={route.id}>

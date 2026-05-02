@@ -173,9 +173,21 @@ export class AdminServer {
       return { groups: this.options.database.listQqGroups() };
     });
 
+    this.app.get("/api/napcat/groups", async () => {
+      return { groups: await this.options.delivery.listNapCatGroups() };
+    });
+
     this.app.post("/api/groups", async (request) => {
       const body = groupSchema.parse(request.body);
       this.options.database.upsertQqGroup(body.groupId, body.name, body.isActive);
+      return { groups: this.options.database.listQqGroups() };
+    });
+
+    this.app.post("/api/groups/import", async (request) => {
+      const body = groupImportSchema.parse(request.body);
+      for (const group of body.groups) {
+        this.options.database.upsertQqGroup(group.groupId, group.name, group.isActive);
+      }
       return { groups: this.options.database.listQqGroups() };
     });
 
@@ -193,6 +205,14 @@ export class AdminServer {
     this.app.post("/api/routes", async (request) => {
       const body = routeSchema.parse(request.body);
       this.options.database.upsertChannelRoute(body.sourceId, body.qqGroupId, body.isActive);
+      return { routes: this.options.database.listChannelRoutes() };
+    });
+
+    this.app.post("/api/routes/bulk", async (request) => {
+      const body = routeBulkSchema.parse(request.body);
+      for (const qqGroupId of body.qqGroupIds) {
+        this.options.database.upsertChannelRoute(body.sourceId, qqGroupId, body.isActive);
+      }
       return { routes: this.options.database.listChannelRoutes() };
     });
 
@@ -295,9 +315,27 @@ const groupSchema = z.object({
   isActive: z.boolean().default(true)
 });
 
+const groupImportSchema = z.object({
+  groups: z
+    .array(
+      z.object({
+        groupId: z.string().regex(/^\d+$/, "QQ群号必须是数字"),
+        name: z.string().min(1, "QQ群名称不能为空"),
+        isActive: z.boolean().default(true)
+      })
+    )
+    .min(1, "请选择至少一个QQ群")
+});
+
 const routeSchema = z.object({
   sourceId: z.string().min(1, "Discord 来源不能为空"),
   qqGroupId: z.coerce.number().int().positive("QQ群配置无效"),
+  isActive: z.boolean().default(true)
+});
+
+const routeBulkSchema = z.object({
+  sourceId: z.string().min(1, "Discord 来源不能为空"),
+  qqGroupIds: z.array(z.coerce.number().int().positive("QQ群配置无效")).min(1, "请选择至少一个QQ群"),
   isActive: z.boolean().default(true)
 });
 

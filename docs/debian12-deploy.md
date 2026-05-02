@@ -128,8 +128,8 @@ http://<服务器 IP>:8787
 2. 设置监听 Discord 服务器 ID。
 3. 配置 NapCat OneBot HTTP 地址和 access token。
 4. 同步 Discord 频道和线程。
-5. 新增 QQ 群。
-6. 配置频道到 QQ 群的路由。
+5. 从 NapCat 当前 QQ 群列表导入需要接收消息的群。
+6. 选择一个 Discord 来源，并勾选一个或多个 QQ 群保存路由。
 7. 测试 NapCat 连接。
 8. 发送测试消息。
 

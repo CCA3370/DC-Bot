@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { AppConfig } from "../shared/config.js";
-import type { PreparedBridgePayload } from "../shared/types.js";
+import type { NapCatGroup, PreparedBridgePayload } from "../shared/types.js";
 
 export type OneBotMessageSegment =
   | { type: "text"; data: { text: string } }
@@ -21,6 +21,13 @@ interface OneBotResponse {
   msg?: string;
   wording?: string;
   data?: unknown;
+}
+
+interface OneBotGroupRow {
+  group_id?: number | string;
+  group_name?: string;
+  member_count?: number;
+  max_member_count?: number;
 }
 
 export class NapCatClient {
@@ -55,6 +62,15 @@ export class NapCatClient {
     await this.callApi("get_status", {});
   }
 
+  async listGroups(): Promise<NapCatGroup[]> {
+    const data = await this.callApi("get_group_list", { no_cache: true });
+    if (!Array.isArray(data)) {
+      throw new Error("NapCat get_group_list returned an invalid response");
+    }
+
+    return data.map(parseGroupRow).sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
+  }
+
   async sendGroupText(groupId: string, text: string) {
     await this.callApi("send_group_msg", {
       group_id: groupId,
@@ -83,6 +99,21 @@ export class NapCatClient {
 
     return body.data;
   }
+}
+
+function parseGroupRow(row: unknown): NapCatGroup {
+  const group = row as OneBotGroupRow;
+  const groupId = group.group_id === undefined ? "" : String(group.group_id);
+  if (!/^\d+$/.test(groupId)) {
+    throw new Error("NapCat get_group_list returned a group without a valid group_id");
+  }
+
+  return {
+    groupId,
+    name: group.group_name?.trim() || groupId,
+    memberCount: typeof group.member_count === "number" ? group.member_count : null,
+    maxMemberCount: typeof group.max_member_count === "number" ? group.max_member_count : null
+  };
 }
 
 export async function buildForwardNodes(payload: PreparedBridgePayload): Promise<OneBotForwardNode[]> {

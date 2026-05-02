@@ -17,6 +17,7 @@ body {
 
 button,
 input,
+summary,
 select {
   font: inherit;
 }
@@ -261,6 +262,8 @@ nav button.active {
 }
 
 .action-row,
+.group-import-form,
+.route-form,
 .settings-card,
 .settings-row,
 .inline-form {
@@ -273,6 +276,14 @@ nav button.active {
 
 .settings-row {
   grid-template-columns: 1fr minmax(260px, 360px) auto;
+}
+
+.group-import-form {
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+}
+
+.route-form {
+  grid-template-columns: minmax(260px, 1fr) auto;
 }
 
 .settings-card {
@@ -310,6 +321,52 @@ nav button.active {
   grid-template-columns: 16px max-content;
   align-items: center;
   color: #33312b;
+}
+
+.manual-group {
+  margin-top: 10px;
+  border-top: 1px solid #ece4d6;
+}
+
+.manual-group summary {
+  width: max-content;
+  padding: 11px 0 0;
+  color: #706650;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.choice-row {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  background: #f4efe5;
+  border: 1px solid #ddd2bd;
+  border-radius: 7px;
+  color: #33312b;
+}
+
+.choice-row strong,
+.choice-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.choice-row small {
+  margin-top: 2px;
+  color: #706650;
+  font-size: 12px;
 }
 
 .table-panel {
@@ -459,6 +516,8 @@ nav button.active {
   }
 
   .action-row,
+  .group-import-form,
+  .route-form,
   .settings-card,
   .settings-row,
   .inline-form {

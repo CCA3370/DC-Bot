@@ -43,6 +43,13 @@ export interface QqGroup {
   isActive: boolean;
 }
 
+export interface NapCatGroup {
+  groupId: string;
+  name: string;
+  memberCount: number | null;
+  maxMemberCount: number | null;
+}
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface EventLogEntry {

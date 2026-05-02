@@ -95,6 +95,10 @@ export class DeliveryService {
     await this.napcat.testConnection();
   }
 
+  async listNapCatGroups() {
+    return this.napcat.listGroups();
+  }
+
   async sendTestMessage(groupId: string, text: string) {
     await this.napcat.sendGroupText(groupId, text);
   }
