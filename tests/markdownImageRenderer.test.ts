@@ -45,7 +45,7 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("border-radius: 0;");
     expect(html).toContain("width: 100%;");
     expect(html).toContain("<strong>Alice</strong>");
-    expect(html).toContain('<span class="format-pill">Discord Markdown</span>');
+    expect(html).toContain('<span class="format-pill">Discord</span>');
     expect(html).not.toContain("#announcements");
     expect(html).not.toContain("source-pill");
     expect(html).not.toContain("<img");

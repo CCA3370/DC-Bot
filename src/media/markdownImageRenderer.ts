@@ -304,7 +304,7 @@ export function buildMarkdownDocument(
   message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">,
   options: AvatarRenderOptions = {}
 ) {
-  return buildRenderedMessageDocument(message, renderMarkdownBody(message.rawMarkdown), "Discord Markdown", options);
+  return buildRenderedMessageDocument(message, renderMarkdownBody(message.rawMarkdown), "Discord", options);
 }
 
 export function buildTranslationDocument(
