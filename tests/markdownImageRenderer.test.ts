@@ -63,6 +63,30 @@ describe("buildMarkdownDocument", () => {
     expect(html).not.toContain(">A</div>");
   });
 
+  it("does not turn four leading spaces before inline markdown into a code block", () => {
+    const html = buildMarkdownDocument({
+      authorName: "Alice",
+      sourceName: "announcements",
+      createdAt: new Date(0).toISOString(),
+      rawMarkdown: "\n\n    **xxxx**\n\n"
+    });
+
+    expect(html).toContain("<strong>xxxx</strong>");
+    expect(html).not.toContain("<pre");
+  });
+
+  it("keeps fenced code blocks available for real Discord code snippets", () => {
+    const html = buildMarkdownDocument({
+      authorName: "Alice",
+      sourceName: "announcements",
+      createdAt: new Date(0).toISOString(),
+      rawMarkdown: ["```", "    **xxxx**", "```"].join("\n")
+    });
+
+    expect(html).toContain("<pre");
+    expect(html).toContain("**xxxx**");
+  });
+
   it("renders translated plain text into a separate image document", () => {
     const html = buildTranslationDocument({
       authorName: "Alice",
@@ -79,6 +103,8 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
     expect(html).toContain("width: 720px;");
     expect(html).toContain("width: 680px;");
+    expect(html).not.toContain("border-left: 5px solid var(--green)");
+    expect(html).not.toContain(".translated-text::before");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 

@@ -14,6 +14,9 @@ const markdown = new MarkdownIt({
   breaks: true
 });
 
+// Discord code blocks are fenced; this avoids treating pasted text with four leading spaces as code.
+markdown.block.ruler.disable(["code"]);
+
 const renderViewportWidth = 720;
 const renderViewportHeight = 720;
 const renderBodyPadding = 20;
@@ -589,10 +592,7 @@ export function buildTranslationDocument(
       padding: 27px 30px 32px;
     }
     .translated-text {
-      position: relative;
       margin: 0;
-      padding: 0 0 0 18px;
-      border-left: 5px solid var(--green);
       color: #1e2723;
       font-size: 21px;
       font-weight: 500;
@@ -600,16 +600,6 @@ export function buildTranslationDocument(
       letter-spacing: 0;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-    }
-    .translated-text::before {
-      content: "译";
-      position: absolute;
-      right: 0;
-      bottom: -8px;
-      color: rgba(31, 107, 83, 0.08);
-      font-size: 86px;
-      font-weight: 900;
-      line-height: 1;
     }
   </style>
 </head>

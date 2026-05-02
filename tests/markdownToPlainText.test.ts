@@ -10,6 +10,10 @@ describe("markdownToPlainText", () => {
     expect(markdownToPlainText("- first\n- second")).toBe("• first\n• second");
   });
 
+  it("removes markdown quote markers before translation", () => {
+    expect(markdownToPlainText("> **important**\n> second line")).toBe("important\nsecond line");
+  });
+
   it("renders Discord mentions, channels, roles and custom emoji as readable text", () => {
     const result = markdownToPlainText("Hi <@123> in <#456> with <@&789> <:wave:999>", {
       users: new Map([["123", "Alice"]]),

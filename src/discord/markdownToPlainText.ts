@@ -7,6 +7,7 @@ export interface MentionLookup {
 export function markdownToPlainText(input: string, lookup: MentionLookup = {}) {
   return input
     .replace(/```([\s\S]*?)```/g, (_, content: string) => content.trim())
+    .replace(/(^|\n)[ \t]{0,3}(?:>[ \t]*)+/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
