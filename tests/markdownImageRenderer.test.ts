@@ -47,6 +47,11 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("--paper: #fbfdff;");
     expect(html).toContain("background: #edf3f6;");
     expect(html).toContain("linear-gradient(180deg, rgba(251, 253, 255, 0.985), rgba(247, 250, 252, 0.985))");
+    expect(html).toContain("background-size: 34px 34px, 34px 34px, auto, auto;");
+    expect(html).toContain('content: "✈";');
+    expect(html).toContain("color: rgba(30, 79, 95, 0.065);");
+    expect(html).toContain("align-items: center;");
+    expect(html).toContain("padding-top: 2px;");
     expect(html).not.toContain("#ede8dc");
     expect(html).toContain("<strong>Alice</strong>");
     expect(html).toContain('<span class="format-pill">Discord</span>');

@@ -360,6 +360,7 @@ function buildRenderedMessageDocument(
       background-size: 28px 28px;
     }
     .card {
+      isolation: isolate;
       position: relative;
       width: ${renderCardWidth}px;
       min-width: ${renderCardWidth}px;
@@ -368,17 +369,36 @@ function buildRenderedMessageDocument(
       border: 0;
       border-radius: 0;
       background:
+        linear-gradient(90deg, rgba(30, 79, 95, 0.05) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(30, 79, 95, 0.05) 1px, transparent 1px),
         linear-gradient(180deg, rgba(251, 253, 255, 0.985), rgba(247, 250, 252, 0.985)),
         repeating-linear-gradient(135deg, rgba(30, 79, 95, 0.025) 0 1px, transparent 1px 18px);
+      background-size: 34px 34px, 34px 34px, auto, auto;
     }
     .card::before {
       content: "";
       display: block;
+      position: relative;
+      z-index: 2;
       width: 100%;
       height: 7px;
       background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
     }
+    .card::after {
+      content: "✈";
+      position: absolute;
+      right: -8px;
+      bottom: 28px;
+      z-index: 0;
+      color: rgba(30, 79, 95, 0.065);
+      font-size: 132px;
+      font-weight: 900;
+      line-height: 1;
+      transform: rotate(-13deg);
+    }
     .header {
+      position: relative;
+      z-index: 1;
       display: grid;
       grid-template-columns: 48px minmax(0, 1fr);
       gap: 12px;
@@ -420,6 +440,7 @@ function buildRenderedMessageDocument(
     .meta-line {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
       margin-top: 7px;
       color: var(--muted);
@@ -445,6 +466,10 @@ function buildRenderedMessageDocument(
       color: #755019;
     }
     .time {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding-top: 2px;
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
@@ -452,6 +477,8 @@ function buildRenderedMessageDocument(
       white-space: nowrap;
     }
     .content {
+      position: relative;
+      z-index: 1;
       width: 100%;
       max-width: ${renderCardWidth}px;
       padding: 24px 26px 30px;
