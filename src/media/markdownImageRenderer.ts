@@ -39,14 +39,14 @@ const sharedMarkdownContentStyles = `
     }
     h1 {
       padding-left: 14px;
-      font-size: 33px;
+      font-size: 36px;
     }
     h2 {
       padding-left: 12px;
-      font-size: 27px;
+      font-size: 30px;
     }
     h3 {
-      font-size: 22px;
+      font-size: 24px;
       color: var(--teal);
     }
     h1::before,
@@ -73,10 +73,10 @@ const sharedMarkdownContentStyles = `
     }
     ul,
     ol {
-      padding-left: 31px;
+      padding-left: 34px;
     }
     li + li {
-      margin-top: 7px;
+      margin-top: 8px;
     }
     li::marker {
       color: var(--gold);
@@ -122,7 +122,7 @@ const sharedMarkdownContentStyles = `
       padding: 0;
       background: transparent;
       color: inherit;
-      font-size: 16px;
+      font-size: 18px;
     }
     blockquote {
       margin-left: 0;
@@ -145,7 +145,7 @@ const sharedMarkdownContentStyles = `
       border-spacing: 0;
       border: 1px solid var(--line);
       border-radius: 8px;
-      font-size: 16px;
+      font-size: 18px;
     }
     th,
     td {
@@ -165,7 +165,7 @@ const sharedMarkdownContentStyles = `
     th {
       background: #edf4f7;
       color: #3e4b52;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 900;
       text-transform: uppercase;
     }
@@ -179,7 +179,7 @@ const sharedMarkdownContentStyles = `
       border-radius: 999px;
       background: var(--teal-soft);
       color: var(--teal);
-      font-size: 0.9em;
+      font-size: 0.95em;
       font-weight: 700;
     }
 `;
@@ -436,7 +436,7 @@ function buildRenderedMessageDocument(
       display: block;
     }
     .header strong {
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
@@ -447,7 +447,7 @@ function buildRenderedMessageDocument(
       gap: 8px;
       margin-top: 7px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       overflow-wrap: anywhere;
     }
@@ -474,7 +474,7 @@ function buildRenderedMessageDocument(
       min-height: 25px;
       padding-top: 2px;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 800;
       letter-spacing: 0;
       white-space: nowrap;
@@ -485,7 +485,7 @@ function buildRenderedMessageDocument(
       width: 100%;
       max-width: ${renderCardWidth}px;
       padding: 24px 26px 30px;
-      font-size: 19px;
+      font-size: 21px;
       line-height: 1.64;
       overflow-wrap: anywhere;
     }
