@@ -364,13 +364,13 @@ export class DeliveryService {
   }
 
   private async translateMessage(message: NormalizedDiscordMessage) {
-    const text = message.text.trim();
-    if (text.length === 0 || !this.deeplx.isConfigured()) {
+    const rawMarkdown = message.rawMarkdown.trim();
+    if (rawMarkdown.length === 0 || !this.deeplx.isConfigured()) {
       return null;
     }
 
     try {
-      return await this.deeplx.translateToChinese(text);
+      return await this.deeplx.translateToChinese(rawMarkdown);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.options.database.recordEventLog("warn", "deeplx", "DeepLX translation failed; sending markdown image without translation image", {

@@ -87,24 +87,32 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("**xxxx**");
   });
 
-  it("renders translated plain text into a separate image document", () => {
+  it("renders translated markdown into a separate image document with the same content structure", () => {
     const html = buildTranslationDocument({
       authorName: "Alice",
       sourceName: "announcements",
       createdAt: new Date(0).toISOString(),
-      translatedText: "你好，世界。\n这是中文译文。<script>alert(1)</script>"
+      translatedText: [
+        "# 挑战者 650",
+        "",
+        "**费用：0 美元**",
+        "",
+        "下载链接: https://hotstart.net/wiki/CL650/Passenger_Edition",
+        "",
+        "<script>alert(1)</script>"
+      ].join("\n")
     });
 
     expect(html).toContain("中文译文");
     expect(html).toContain("#announcements");
-    expect(html).toContain("你好，世界。");
-    expect(html).toContain("这是中文译文。&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).toContain("<h1>挑战者 650</h1>");
+    expect(html).toContain("<strong>费用：0 美元</strong>");
+    expect(html).toContain('<a href="https://hotstart.net/wiki/CL650/Passenger_Edition">https://hotstart.net/wiki/CL650/Passenger_Edition</a>');
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).toContain("data-image-card");
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
     expect(html).toContain("width: 720px;");
     expect(html).toContain("width: 680px;");
-    expect(html).not.toContain("border-left: 5px solid var(--green)");
-    expect(html).not.toContain(".translated-text::before");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 

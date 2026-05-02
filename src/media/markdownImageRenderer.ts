@@ -21,261 +21,7 @@ const renderViewportWidth = 720;
 const renderViewportHeight = 720;
 const renderBodyPadding = 20;
 const renderCardWidth = renderViewportWidth - renderBodyPadding * 2;
-
-markdown.renderer.rules.image = (tokens, index) => {
-  const token = tokens[index];
-  if (!token) {
-    return "";
-  }
-  const alt = markdown.utils.escapeHtml(token.content || "image");
-  return `<span class="markdown-image-ref">[image: ${alt}]</span>`;
-};
-
-export class MarkdownImageRenderer {
-  private readonly cacheRoot: string;
-
-  constructor(private readonly config: Pick<AppConfig, "storage" | "media" | "discord">) {
-    this.cacheRoot = resolve(config.storage.mediaCacheDir);
-  }
-
-  async renderMessage(message: NormalizedDiscordMessage): Promise<ProcessedImageAsset | null> {
-    if (message.rawMarkdown.trim().length === 0) {
-      return null;
-    }
-
-    const html = buildMarkdownDocument(message, {
-      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
-    });
-    return this.writeRenderedImage("markdown", message.id, message.rawMarkdown, html);
-  }
-
-  async renderTranslation(message: NormalizedDiscordMessage, translatedText: string | null): Promise<ProcessedImageAsset | null> {
-    const text = translatedText?.trim() ?? "";
-    if (text.length === 0) {
-      return null;
-    }
-
-    const html = buildTranslationDocument({
-      authorName: message.authorName,
-      sourceName: message.sourceName,
-      createdAt: message.createdAt,
-      translatedText: text
-    }, {
-      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
-    });
-    return this.writeRenderedImage("translation", message.id, text, html);
-  }
-
-  private async loadAuthorAvatarDataUri(avatarUrl: string | null) {
-    if (!avatarUrl) {
-      return null;
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.discord.attachmentTimeoutMs);
-
-    try {
-      const response = await fetch(avatarUrl, { signal: controller.signal });
-      if (!response.ok) {
-        return null;
-      }
-
-      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "image/png";
-      if (!contentType.startsWith("image/") || contentType === "image/svg+xml") {
-        return null;
-      }
-
-      const contentLength = Number(response.headers.get("content-length") ?? "0");
-      if (contentLength > this.config.media.maxImageBytes) {
-        return null;
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.byteLength === 0 || buffer.byteLength > this.config.media.maxImageBytes) {
-        return null;
-      }
-
-      return `data:${contentType};base64,${buffer.toString("base64")}`;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private async writeRenderedImage(
-    kind: "markdown" | "translation",
-    messageId: string,
-    hashInput: string,
-    html: string
-  ): Promise<ProcessedImageAsset> {
-    const buffer = await screenshotHtml(html);
-    const metadata = await sharp(buffer).metadata();
-    const width = metadata.width ?? 960;
-    const height = metadata.height ?? 1;
-    const hash = createHash("sha256").update(messageId).update(hashInput).update(buffer).digest("hex").slice(0, 24);
-    const day = new Date().toISOString().slice(0, 10);
-    const directory = join(this.cacheRoot, kind, day);
-    mkdirSync(directory, { recursive: true });
-
-    const filename = `${hash}-${kind}.png`;
-    const filePath = join(directory, filename);
-    await writeFile(filePath, buffer);
-
-    return {
-      attachmentId: `${kind}-${messageId}`,
-      filename,
-      mimeType: "image/png",
-      filePath,
-      size: buffer.byteLength,
-      width,
-      height
-    };
-  }
-}
-
-export interface AvatarRenderOptions {
-  authorAvatarDataUri?: string | null;
-}
-
-export function buildMarkdownDocument(
-  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">,
-  options: AvatarRenderOptions = {}
-) {
-  const renderedBody = markdown.render(message.rawMarkdown.trim());
-  const timestamp = formatTimestamp(message.createdAt);
-  const authorInitials = getAuthorInitials(message.authorName);
-  const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
-
-  return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #20211f;
-      --muted: #6d6658;
-      --paper: #fffdf7;
-      --paper-soft: #f5efe4;
-      --line: #d8ccba;
-      --teal: #17453e;
-      --teal-soft: #e1eee9;
-      --gold: #d49a2d;
-      --red: #8f3f34;
-      font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-      color: var(--ink);
-      background: #ede8dc;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      padding: ${renderBodyPadding}px;
-      width: ${renderViewportWidth}px;
-      background:
-        linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
-        #ede8dc;
-      background-size: 28px 28px;
-    }
-    .card {
-      position: relative;
-      width: ${renderCardWidth}px;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
-        repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
-    }
-    .card::before {
-      content: "";
-      display: block;
-      height: 7px;
-      background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
-    }
-    .header {
-      display: grid;
-      grid-template-columns: 48px minmax(0, 1fr);
-      gap: 12px;
-      align-items: center;
-      padding: 18px 22px 16px;
-      border-bottom: 1px solid var(--line);
-      background:
-        linear-gradient(180deg, #fffdf7, #f7f1e7);
-      color: var(--ink);
-    }
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border: 1px solid rgba(23, 69, 62, 0.24);
-      border-radius: 8px;
-      background: var(--teal);
-      color: #fff8e6;
-      line-height: 1;
-    }
-    .avatar-initials {
-      display: grid;
-      place-items: center;
-      font-size: 18px;
-      font-weight: 900;
-    }
-    .avatar-image {
-      display: block;
-      object-fit: cover;
-    }
-    .header strong,
-    .header span {
-      display: block;
-    }
-    .header strong {
-      font-size: 20px;
-      line-height: 1.15;
-      overflow-wrap: anywhere;
-    }
-    .meta-line {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 7px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      overflow-wrap: anywhere;
-    }
-    .meta-line .source-pill,
-    .meta-line .format-pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 25px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(23, 69, 62, 0.18);
-      background: var(--teal-soft);
-      color: var(--teal);
-      max-width: 460px;
-      overflow-wrap: anywhere;
-    }
-    .meta-line .format-pill {
-      border-color: rgba(212, 154, 45, 0.28);
-      background: #fff1cc;
-      color: #744714;
-    }
-    .time {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0;
-      white-space: nowrap;
-    }
-    .content {
-      padding: 24px 26px 30px;
-      font-size: 18px;
-      line-height: 1.64;
-      overflow-wrap: anywhere;
-    }
+const sharedMarkdownContentStyles = `
     .content > :first-child {
       margin-top: 0;
     }
@@ -436,6 +182,263 @@ export function buildMarkdownDocument(
       font-size: 0.9em;
       font-weight: 700;
     }
+`;
+
+markdown.renderer.rules.image = (tokens, index) => {
+  const token = tokens[index];
+  if (!token) {
+    return "";
+  }
+  const alt = markdown.utils.escapeHtml(token.content || "image");
+  return `<span class="markdown-image-ref">[image: ${alt}]</span>`;
+};
+
+export class MarkdownImageRenderer {
+  private readonly cacheRoot: string;
+
+  constructor(private readonly config: Pick<AppConfig, "storage" | "media" | "discord">) {
+    this.cacheRoot = resolve(config.storage.mediaCacheDir);
+  }
+
+  async renderMessage(message: NormalizedDiscordMessage): Promise<ProcessedImageAsset | null> {
+    if (message.rawMarkdown.trim().length === 0) {
+      return null;
+    }
+
+    const html = buildMarkdownDocument(message, {
+      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
+    });
+    return this.writeRenderedImage("markdown", message.id, message.rawMarkdown, html);
+  }
+
+  async renderTranslation(message: NormalizedDiscordMessage, translatedText: string | null): Promise<ProcessedImageAsset | null> {
+    const text = translatedText?.trim() ?? "";
+    if (text.length === 0) {
+      return null;
+    }
+
+    const html = buildTranslationDocument({
+      authorName: message.authorName,
+      sourceName: message.sourceName,
+      createdAt: message.createdAt,
+      translatedText: text
+    }, {
+      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
+    });
+    return this.writeRenderedImage("translation", message.id, text, html);
+  }
+
+  private async loadAuthorAvatarDataUri(avatarUrl: string | null) {
+    if (!avatarUrl) {
+      return null;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.discord.attachmentTimeoutMs);
+
+    try {
+      const response = await fetch(avatarUrl, { signal: controller.signal });
+      if (!response.ok) {
+        return null;
+      }
+
+      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "image/png";
+      if (!contentType.startsWith("image/") || contentType === "image/svg+xml") {
+        return null;
+      }
+
+      const contentLength = Number(response.headers.get("content-length") ?? "0");
+      if (contentLength > this.config.media.maxImageBytes) {
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.byteLength === 0 || buffer.byteLength > this.config.media.maxImageBytes) {
+        return null;
+      }
+
+      return `data:${contentType};base64,${buffer.toString("base64")}`;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async writeRenderedImage(
+    kind: "markdown" | "translation",
+    messageId: string,
+    hashInput: string,
+    html: string
+  ): Promise<ProcessedImageAsset> {
+    const buffer = await screenshotHtml(html);
+    const metadata = await sharp(buffer).metadata();
+    const width = metadata.width ?? 960;
+    const height = metadata.height ?? 1;
+    const hash = createHash("sha256").update(messageId).update(hashInput).update(buffer).digest("hex").slice(0, 24);
+    const day = new Date().toISOString().slice(0, 10);
+    const directory = join(this.cacheRoot, kind, day);
+    mkdirSync(directory, { recursive: true });
+
+    const filename = `${hash}-${kind}.png`;
+    const filePath = join(directory, filename);
+    await writeFile(filePath, buffer);
+
+    return {
+      attachmentId: `${kind}-${messageId}`,
+      filename,
+      mimeType: "image/png",
+      filePath,
+      size: buffer.byteLength,
+      width,
+      height
+    };
+  }
+}
+
+export interface AvatarRenderOptions {
+  authorAvatarDataUri?: string | null;
+}
+
+export function buildMarkdownDocument(
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">,
+  options: AvatarRenderOptions = {}
+) {
+  const renderedBody = renderMarkdownBody(message.rawMarkdown);
+  const timestamp = formatTimestamp(message.createdAt);
+  const authorInitials = getAuthorInitials(message.authorName);
+  const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20211f;
+      --muted: #6d6658;
+      --paper: #fffdf7;
+      --paper-soft: #f5efe4;
+      --line: #d8ccba;
+      --teal: #17453e;
+      --teal-soft: #e1eee9;
+      --gold: #d49a2d;
+      --red: #8f3f34;
+      font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--ink);
+      background: #ede8dc;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: ${renderBodyPadding}px;
+      width: ${renderViewportWidth}px;
+      background:
+        linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        #ede8dc;
+      background-size: 28px 28px;
+    }
+    .card {
+      position: relative;
+      width: ${renderCardWidth}px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
+        repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
+    }
+    .card::before {
+      content: "";
+      display: block;
+      height: 7px;
+      background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #fffdf7, #f7f1e7);
+      color: var(--ink);
+    }
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(23, 69, 62, 0.24);
+      border-radius: 8px;
+      background: var(--teal);
+      color: #fff8e6;
+      line-height: 1;
+    }
+    .avatar-initials {
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .avatar-image {
+      display: block;
+      object-fit: cover;
+    }
+    .header strong,
+    .header span {
+      display: block;
+    }
+    .header strong {
+      font-size: 20px;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .meta-line .source-pill,
+    .meta-line .format-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(23, 69, 62, 0.18);
+      background: var(--teal-soft);
+      color: var(--teal);
+      max-width: 460px;
+      overflow-wrap: anywhere;
+    }
+    .meta-line .format-pill {
+      border-color: rgba(212, 154, 45, 0.28);
+      background: #fff1cc;
+      color: #744714;
+    }
+    .time {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+    .content {
+      padding: 24px 26px 30px;
+      font-size: 18px;
+      line-height: 1.64;
+      overflow-wrap: anywhere;
+    }
+${sharedMarkdownContentStyles}
   </style>
 </head>
 <body>
@@ -464,7 +467,7 @@ export function buildTranslationDocument(
   const timestamp = formatTimestamp(message.createdAt);
   const authorInitials = getAuthorInitials(message.authorName);
   const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
-  const translatedText = escapeHtml(message.translatedText.trim());
+  const renderedBody = renderMarkdownBody(message.translatedText);
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -476,11 +479,13 @@ export function buildTranslationDocument(
       --ink: #1f2522;
       --muted: #617168;
       --line: #c9d8d0;
-      --green: #1f6b53;
+      --teal: #1f6b53;
+      --teal-soft: #e4f2ec;
       --green-dark: #123f34;
-      --green-soft: #e4f2ec;
       --paper: #fbfefb;
+      --paper-soft: #edf7f1;
       --gold: #d99a28;
+      --red: #8f3f34;
       font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
       color: var(--ink);
       background: #e6eee8;
@@ -527,7 +532,7 @@ export function buildTranslationDocument(
       height: 48px;
       border: 1px solid rgba(31, 107, 83, 0.22);
       border-radius: 8px;
-      background: var(--green-dark);
+      background: var(--teal);
       color: #fff9e8;
       line-height: 1;
     }
@@ -572,7 +577,7 @@ export function buildTranslationDocument(
     }
     .translation-pill {
       border: 1px solid rgba(31, 107, 83, 0.2);
-      background: var(--green-soft);
+      background: var(--teal-soft);
       color: var(--green-dark);
     }
     .source-pill {
@@ -590,17 +595,11 @@ export function buildTranslationDocument(
     }
     .content {
       padding: 27px 30px 32px;
-    }
-    .translated-text {
-      margin: 0;
-      color: #1e2723;
-      font-size: 21px;
-      font-weight: 500;
-      line-height: 1.78;
-      letter-spacing: 0;
-      white-space: pre-wrap;
+      font-size: 18px;
+      line-height: 1.64;
       overflow-wrap: anywhere;
     }
+${sharedMarkdownContentStyles}
   </style>
 </head>
 <body>
@@ -618,9 +617,7 @@ export function buildTranslationDocument(
         </div>
       </div>
     </header>
-    <main class="content">
-      <p class="translated-text">${translatedText}</p>
-    </main>
+    <main class="content">${renderedBody}</main>
   </article>
 </body>
 </html>`;
@@ -721,6 +718,10 @@ function renderAvatar(authorName: string, authorInitials: string, authorAvatarDa
   }
 
   return `<div class="avatar avatar-initials">${escapeHtml(authorInitials)}</div>`;
+}
+
+function renderMarkdownBody(value: string) {
+  return markdown.render(value.trim());
 }
 
 function escapeHtml(value: string) {
