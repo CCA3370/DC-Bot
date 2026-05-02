@@ -32,7 +32,7 @@ interface StatusResponse {
   };
   deeplx: {
     endpoint: string;
-    tokenConfigured: boolean;
+    apiKeyConfigured: boolean;
     timeoutMs: number;
   };
   counts: {
@@ -63,7 +63,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [guildForm, setGuildForm] = useState("");
   const [napcatForm, setNapcatForm] = useState({ endpoint: "", accessToken: "", clearAccessToken: false });
-  const [deeplxForm, setDeeplxForm] = useState({ endpoint: "", token: "", clearToken: false, timeoutMs: 10000 });
+  const [deeplxForm, setDeeplxForm] = useState({ endpoint: "", apiKey: "", clearApiKey: false, timeoutMs: 10000 });
   const [groupForm, setGroupForm] = useState({ groupId: "", name: "" });
   const [selectedNapCatGroupId, setSelectedNapCatGroupId] = useState("");
   const [routeForm, setRouteForm] = useState<{ sourceId: string; qqGroupIds: number[] }>({ sourceId: "", qqGroupIds: [] });
@@ -102,7 +102,7 @@ function App() {
       setStatus(nextStatus);
       setGuildForm(nextStatus.discord.guildId);
       setNapcatForm({ endpoint: nextStatus.napcat.endpoint, accessToken: "", clearAccessToken: false });
-      setDeeplxForm({ endpoint: nextStatus.deeplx.endpoint, token: "", clearToken: false, timeoutMs: nextStatus.deeplx.timeoutMs });
+      setDeeplxForm({ endpoint: nextStatus.deeplx.endpoint, apiKey: "", clearApiKey: false, timeoutMs: nextStatus.deeplx.timeoutMs });
       setChannels(channelResponse.channels);
       setGroups(groupResponse.groups);
       setRoutes(routeResponse.routes);
@@ -176,7 +176,7 @@ function App() {
         body: JSON.stringify(deeplxForm)
       });
       setStatus((current) => (current ? { ...current, deeplx: response.deeplx } : current));
-      setDeeplxForm({ endpoint: response.deeplx.endpoint, token: "", clearToken: false, timeoutMs: response.deeplx.timeoutMs });
+      setDeeplxForm({ endpoint: response.deeplx.endpoint, apiKey: "", clearApiKey: false, timeoutMs: response.deeplx.timeoutMs });
       await reloadAll();
     }, "DeepLX 配置已保存");
   }
@@ -411,7 +411,7 @@ function App() {
             <Metric label="NapCat" value={status.napcat.endpoint} />
             <Metric label="NapCat Token" value={status.napcat.accessTokenConfigured ? "已配置" : "未配置"} tone={status.napcat.accessTokenConfigured ? "ok" : "warn"} />
             <Metric label="DeepLX" value={status.deeplx.endpoint || "未启用"} tone={status.deeplx.endpoint ? "ok" : "warn"} />
-            <Metric label="DeepLX Token" value={status.deeplx.tokenConfigured ? "已配置" : "未配置"} tone={status.deeplx.tokenConfigured ? "ok" : "warn"} />
+            <Metric label="DeepLX API Key" value={status.deeplx.apiKeyConfigured ? "已配置" : "未配置"} tone={status.deeplx.apiKeyConfigured ? "ok" : "warn"} />
             <Metric label="来源" value={String(status.counts.channels)} />
             <Metric label="QQ群" value={String(status.counts.groups)} />
             <Metric label="路由" value={String(status.counts.routes)} />
@@ -481,18 +481,18 @@ function App() {
                 <input
                   value={deeplxForm.endpoint}
                   onChange={(event) => setDeeplxForm({ ...deeplxForm, endpoint: event.target.value })}
-                  placeholder="http://127.0.0.1:1188"
+                  placeholder="https://api.deeplx.org"
                 />
               </label>
               <label>
-                Token
+                API Key
                 <input
-                  value={deeplxForm.token}
-                  onChange={(event) => setDeeplxForm({ ...deeplxForm, token: event.target.value })}
+                  value={deeplxForm.apiKey}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, apiKey: event.target.value })}
                   type="password"
                   autoComplete="new-password"
-                  disabled={deeplxForm.clearToken}
-                  placeholder={status.deeplx.tokenConfigured ? "已配置，留空保留当前 token" : "没有 token 可留空"}
+                  disabled={deeplxForm.clearApiKey}
+                  placeholder={status.deeplx.apiKeyConfigured ? "已配置，留空保留当前 API Key" : "填写 DeepLX_API_KEY"}
                 />
               </label>
               <label>
@@ -508,11 +508,11 @@ function App() {
               </label>
               <label className="checkbox-field">
                 <input
-                  checked={deeplxForm.clearToken}
-                  onChange={(event) => setDeeplxForm({ ...deeplxForm, clearToken: event.target.checked, token: "" })}
+                  checked={deeplxForm.clearApiKey}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, clearApiKey: event.target.checked, apiKey: "" })}
                   type="checkbox"
                 />
-                清除已保存 token
+                清除已保存 API Key
               </label>
               <button onClick={() => void saveDeepLxSettings()} disabled={busy}>
                 <Languages size={17} />

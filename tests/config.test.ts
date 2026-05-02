@@ -25,13 +25,13 @@ describe("loadConfig", () => {
   it("normalizes DeepLX settings when explicitly provided", () => {
     const config = loadConfig({
       DEEPLX_ENDPOINT: " http://127.0.0.1:1188/// ",
-      DEEPLX_TOKEN: "deeplx-token",
+      DEEPLX_API_KEY: "deeplx-api-key",
       DEEPLX_TIMEOUT_MS: "15000"
     });
 
     expect(config.deeplx).toEqual({
       endpoint: "http://127.0.0.1:1188",
-      token: "deeplx-token",
+      apiKey: "deeplx-api-key",
       timeoutMs: 15000
     });
   });

@@ -128,7 +128,7 @@ export class AdminServer {
         },
         deeplx: {
           endpoint: deeplxConfig.endpoint,
-          tokenConfigured: deeplxConfig.token.length > 0,
+          apiKeyConfigured: deeplxConfig.apiKey.length > 0,
           timeoutMs: deeplxConfig.timeoutMs
         },
         counts: {
@@ -173,14 +173,14 @@ export class AdminServer {
       const current = this.options.getDeepLxConfig();
       const nextConfig = {
         endpoint: body.endpoint.replace(/\/+$/, ""),
-        token: body.clearToken ? "" : body.token.trim() || current.token,
+        apiKey: body.clearApiKey ? "" : body.apiKey.trim() || current.apiKey,
         timeoutMs: body.timeoutMs
       };
       await this.options.setDeepLxConfig(nextConfig);
       return {
         deeplx: {
           endpoint: nextConfig.endpoint,
-          tokenConfigured: nextConfig.token.length > 0,
+          apiKeyConfigured: nextConfig.apiKey.length > 0,
           timeoutMs: nextConfig.timeoutMs
         }
       };
@@ -393,8 +393,8 @@ const deeplxSettingsSchema = z.object({
     .string()
     .trim()
     .refine((value) => value.length === 0 || isUrl(value), "DeepLX 地址必须为空或有效 URL"),
-  token: z.string().optional().default(""),
-  clearToken: z.boolean().optional().default(false),
+  apiKey: z.string().optional().default(""),
+  clearApiKey: z.boolean().optional().default(false),
   timeoutMs: z.coerce.number().int().positive("DeepLX 超时时间必须是正整数").max(60_000, "DeepLX 超时时间不能超过 60000ms")
 });
 

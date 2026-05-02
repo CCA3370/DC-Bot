@@ -5,7 +5,7 @@
 - `.env` 中已设置真实 `DISCORD_TOKEN`、`ADMIN_PASSWORD`、`ADMIN_SESSION_SECRET`。
 - NapCat OneBot HTTP 服务可访问，`NAPCAT_ENDPOINT` 指向正确地址。
 - 本机可用 Chromium/Chrome；如不能自动发现，设置 `CHROMIUM_EXECUTABLE_PATH`。
-- 如需中文译文图片，DeepLX 服务可访问，`DEEPLX_ENDPOINT` 指向正确地址。
+- 如需中文译文图片，DeepLX 服务可访问，`DEEPLX_ENDPOINT` 和 `DEEPLX_API_KEY` 配置正确。
 - Discord Bot 已加入准备监听的 guild，并启用 `Guilds`、`GuildMessages`、`MessageContent` intent。
 - 运行 `pnpm lint`、`pnpm test`、`pnpm build` 均通过。
 
@@ -15,7 +15,7 @@
 - 使用 `ADMIN_PASSWORD` 登录成功，退出后 API 返回 401。
 - 在“运行总览”设置监听 Discord 服务器 ID，保存后服务日志显示 Discord 连接重启。
 - 修改监听 Discord 服务器 ID 后重新同步来源，列表切换到新服务器的频道和线程。
-- 在“运行总览”保存 DeepLX 地址、token 和超时时间，刷新后配置仍保留。
+- 在“运行总览”保存 DeepLX 地址、API Key 和超时时间，刷新后配置仍保留。
 - 点击“来源”里的同步，能看到普通文本频道和活动线程。
 - 新增 QQ 群后刷新仍存在，停用后不会作为有效目标。
 - 新增频道到 QQ 群路由后，路由列表显示来源、类型、群名和群号。
@@ -39,7 +39,7 @@
 - 恢复 NapCat 后等待自动重试，任务状态变为 sent。
 - 对失败任务点击“重发”，QQ 收到补发内容，任务状态变为 sent。
 - 临时填错 DeepLX 地址后发送已映射文字消息，QQ 仍收到 Markdown 原文图片，不收到中文译文图片，后台日志出现 DeepLX 翻译失败记录。
-- 确认失败日志不包含 Discord token、NapCat token 或带签名的媒体 URL。
+- 确认失败日志不包含 Discord token、NapCat token、DeepLX API Key 或带签名的媒体 URL。
 
 ## 数据与文件
 

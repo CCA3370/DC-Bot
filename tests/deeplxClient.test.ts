@@ -6,33 +6,39 @@ describe("DeepLxClient", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts readable text with auto source and Chinese target", async () => {
+  it("posts readable text through the DeepLX API-key path", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: "你好" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new DeepLxClient({
-      endpoint: "http://127.0.0.1:1188",
-      token: "secret",
+      endpoint: "https://api.deeplx.org",
+      apiKey: "secret/key",
       timeoutMs: 1000
     });
 
     await expect(client.translateToChinese(" hello ")).resolves.toBe("你好");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:1188/translate",
+      "https://api.deeplx.org/secret%2Fkey/translate",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          "content-type": "application/json",
-          authorization: "Bearer secret"
+          "content-type": "application/json"
         }),
         body: JSON.stringify({
           text: "hello",
-          source_lang: "auto",
+          source_lang: "EN",
           target_lang: "ZH"
         })
       })
     );
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.headers).not.toHaveProperty("authorization");
+  });
+
+  it("requires both endpoint and API key before translation is enabled", () => {
+    expect(new DeepLxClient({ endpoint: "https://api.deeplx.org", apiKey: "", timeoutMs: 1000 }).isConfigured()).toBe(false);
+    expect(new DeepLxClient({ endpoint: "", apiKey: "key", timeoutMs: 1000 }).isConfigured()).toBe(false);
+    expect(new DeepLxClient({ endpoint: "https://api.deeplx.org", apiKey: "key", timeoutMs: 1000 }).isConfigured()).toBe(true);
   });
 
   it("parses common DeepLX and DeepL response shapes", () => {
@@ -50,7 +56,7 @@ describe("DeepLxClient", () => {
 
     const client = new DeepLxClient({
       endpoint: "http://127.0.0.1:1188",
-      token: "",
+      apiKey: "deeplx-api-key",
       timeoutMs: 1000
     });
 

@@ -41,7 +41,7 @@ function redactContext(context: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(context).map(([key, value]) => {
       const normalized = key.toLowerCase();
-      if (normalized.includes("token") || normalized.includes("secret") || normalized.includes("password")) {
+      if (normalized.includes("token") || normalized.includes("secret") || normalized.includes("password") || normalized.includes("apikey")) {
         return [key, "[redacted]"];
       }
       return [key, value];

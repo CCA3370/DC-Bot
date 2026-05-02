@@ -16,7 +16,7 @@ let activeNapCatConfig = {
 };
 let activeDeepLxConfig = {
   endpoint: database.getSetting("deeplx.endpoint") ?? config.deeplx.endpoint,
-  token: database.getSetting("deeplx.token") ?? config.deeplx.token,
+  apiKey: database.getSetting("deeplx.api_key") ?? config.deeplx.apiKey,
   timeoutMs: loadStoredTimeout(database.getSetting("deeplx.timeout_ms"), config.deeplx.timeoutMs)
 };
 const delivery = new DeliveryService({
@@ -56,16 +56,16 @@ const admin = new AdminServer({
   setDeepLxConfig: async (deeplxConfig) => {
     activeDeepLxConfig = {
       endpoint: deeplxConfig.endpoint,
-      token: deeplxConfig.token,
+      apiKey: deeplxConfig.apiKey,
       timeoutMs: deeplxConfig.timeoutMs
     };
     database.setSetting("deeplx.endpoint", activeDeepLxConfig.endpoint);
-    database.setSetting("deeplx.token", activeDeepLxConfig.token);
+    database.setSetting("deeplx.api_key", activeDeepLxConfig.apiKey);
     database.setSetting("deeplx.timeout_ms", String(activeDeepLxConfig.timeoutMs));
     delivery.updateDeepLxConfig(activeDeepLxConfig);
     database.recordEventLog("info", "admin", "Updated DeepLX settings", {
       endpoint: activeDeepLxConfig.endpoint,
-      tokenConfigured: activeDeepLxConfig.token.length > 0,
+      apiKeyConfigured: activeDeepLxConfig.apiKey.length > 0,
       timeoutMs: activeDeepLxConfig.timeoutMs
     });
   },

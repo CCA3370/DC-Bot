@@ -20,7 +20,7 @@ export class DeepLxClient {
   }
 
   isConfigured() {
-    return this.config.endpoint.length > 0;
+    return this.config.endpoint.length > 0 && this.config.apiKey.length > 0;
   }
 
   async translateToChinese(text: string) {
@@ -33,16 +33,15 @@ export class DeepLxClient {
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     try {
-      const response = await fetch(`${this.config.endpoint}/translate`, {
+      const response = await fetch(`${this.config.endpoint}/${encodeURIComponent(this.config.apiKey)}/translate`, {
         method: "POST",
         signal: controller.signal,
         headers: {
-          "content-type": "application/json",
-          ...(this.config.token ? { authorization: `Bearer ${this.config.token}` } : {})
+          "content-type": "application/json"
         },
         body: JSON.stringify({
           text: sourceText,
-          source_lang: "auto",
+          source_lang: "EN",
           target_lang: "ZH"
         })
       });

@@ -47,8 +47,8 @@ pnpm dev:admin
 - `DISCORD_GUILD_ID`：可选初始 Discord 服务器 ID；也可以在后台面板中设置和修改。
 - `NAPCAT_ENDPOINT`：NapCat OneBot HTTP 地址，例如 `http://127.0.0.1:3000`。
 - `NAPCAT_ACCESS_TOKEN`：NapCat access token，没有则留空。
-- `DEEPLX_ENDPOINT`：DeepLX HTTP 地址，例如 `http://127.0.0.1:1188`；留空则不发送中文译文图片。
-- `DEEPLX_TOKEN`：DeepLX token，没有则留空。
+- `DEEPLX_ENDPOINT`：DeepLX HTTP 地址，例如 `https://api.deeplx.org`；地址或 API Key 为空则不发送中文译文图片。
+- `DEEPLX_API_KEY`：DeepLX API Key，请求会发送到 `{DEEPLX_ENDPOINT}/{DEEPLX_API_KEY}/translate`。
 - `DEEPLX_TIMEOUT_MS`：DeepLX 翻译请求超时，默认 `10000`。
 - `ADMIN_PASSWORD`：后台登录密码。
 - `ADMIN_SESSION_SECRET`：后台签名 Cookie secret。
@@ -71,7 +71,7 @@ http://127.0.0.1:8787
 1. 登录。
 2. 在“运行总览”里设置监听 Discord 服务器 ID。
 3. 在“运行总览”里配置 NapCat OneBot HTTP 地址和 access token。
-4. 在“运行总览”里配置 DeepLX HTTP 地址和 token。
+4. 在“运行总览”里配置 DeepLX HTTP 地址和 API Key。
 5. 在“来源”里同步 Discord 频道和线程。
 6. 在“路由”里从 NapCat 当前 QQ 群列表导入需要接收消息的群。
 7. 选择一个 Discord 来源，并勾选一个或多个 QQ 群保存路由。

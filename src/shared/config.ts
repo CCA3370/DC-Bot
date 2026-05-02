@@ -6,7 +6,7 @@ const envSchema = z.object({
   NAPCAT_ENDPOINT: z.string().url().default("http://127.0.0.1:3000"),
   NAPCAT_ACCESS_TOKEN: z.string().optional().default(""),
   DEEPLX_ENDPOINT: z.string().optional().default(""),
-  DEEPLX_TOKEN: z.string().optional().default(""),
+  DEEPLX_API_KEY: z.string().optional().default(""),
   DEEPLX_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   ADMIN_HOST: z.string().default("127.0.0.1"),
   ADMIN_PORT: z.coerce.number().int().positive().default(8787),
@@ -37,7 +37,7 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
     },
     deeplx: {
       endpoint: parsed.DEEPLX_ENDPOINT.trim().replace(/\/+$/, ""),
-      token: parsed.DEEPLX_TOKEN,
+      apiKey: parsed.DEEPLX_API_KEY.trim(),
       timeoutMs: parsed.DEEPLX_TIMEOUT_MS
     },
     admin: {
