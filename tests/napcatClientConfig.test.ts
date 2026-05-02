@@ -125,8 +125,8 @@ describe("NapCatClient runtime config", () => {
     });
   });
 
-  it("normalizes bridge notice source names", () => {
-    expect(buildBridgeNoticeText(" announcements ")).toBe("⬆️有来自announcements的新消息，请留意查看哦~");
+  it("normalizes bridge notice sender names", () => {
+    expect(buildBridgeNoticeText(" Alice ")).toBe("⬆️有来自Alice的新消息，请留意查看哦~");
     expect(buildBridgeNoticeText("   ")).toBe("⬆️有新的 Discord 消息，请留意查看哦~");
   });
 });

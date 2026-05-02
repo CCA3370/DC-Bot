@@ -426,7 +426,6 @@ function buildRenderedMessageDocument(
       font-weight: 700;
       overflow-wrap: anywhere;
     }
-    .meta-line .source-pill,
     .meta-line .format-pill {
       display: inline-flex;
       align-items: center;
@@ -469,7 +468,6 @@ ${sharedMarkdownContentStyles}
       <div>
         <strong>${escapeHtml(message.authorName)}</strong>
         <div class="meta-line">
-          <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
           <span class="format-pill">${escapeHtml(formatLabel)}</span>
           <span class="time">${escapeHtml(timestamp)}</span>
         </div>

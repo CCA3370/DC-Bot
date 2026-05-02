@@ -61,8 +61,8 @@ export class NapCatClient {
     return parseMessageId(data, "send_group_forward_msg");
   }
 
-  async sendBridgeNotice(groupId: string, sourceName: string) {
-    await this.sendGroupText(groupId, buildBridgeNoticeText(sourceName));
+  async sendBridgeNotice(groupId: string, senderName: string) {
+    await this.sendGroupText(groupId, buildBridgeNoticeText(senderName));
   }
 
   async forwardGroupSingleMessage(groupId: string, messageId: string) {
@@ -115,8 +115,8 @@ export class NapCatClient {
   }
 }
 
-export function buildBridgeNoticeText(sourceName: string) {
-  const normalized = sourceName.trim();
+export function buildBridgeNoticeText(senderName: string) {
+  const normalized = senderName.trim();
   if (normalized.length === 0) {
     return "⬆️有新的 Discord 消息，请留意查看哦~";
   }

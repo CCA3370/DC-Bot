@@ -53,9 +53,9 @@ describe("DeliveryService fanout delivery", () => {
       { group_id: "10003", message_id: "9001" }
     ]);
     expect(calls.filter((call) => call.action === "send_group_msg").map((call) => call.body)).toEqual([
-      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] },
-      { group_id: "10002", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] },
-      { group_id: "10003", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] }
+      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自Alice的新消息，请留意查看哦~" } }] },
+      { group_id: "10002", message: [{ type: "text", data: { text: "⬆️有来自Alice的新消息，请留意查看哦~" } }] },
+      { group_id: "10003", message: [{ type: "text", data: { text: "⬆️有来自Alice的新消息，请留意查看哦~" } }] }
     ]);
     expect(calls.map((call) => [call.action, call.body.group_id])).toEqual([
       ["send_group_forward_msg", "10001"],
@@ -268,7 +268,7 @@ describe("DeliveryService fanout delivery", () => {
     expect(calls.filter((call) => call.action === "send_group_forward_msg").map((call) => call.body.group_id)).toEqual(["10001"]);
     expect(calls.some((call) => call.action === "forward_group_single_msg")).toBe(false);
     expect(calls.filter((call) => call.action === "send_group_msg").map((call) => call.body)).toEqual([
-      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] }
+      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自Alice的新消息，请留意查看哦~" } }] }
     ]);
     expect(existsSync(mediaPath)).toBe(false);
 

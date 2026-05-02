@@ -41,6 +41,10 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
     expect(html).toContain("width: 720px;");
     expect(html).toContain("width: 680px;");
+    expect(html).toContain("<strong>Alice</strong>");
+    expect(html).toContain('<span class="format-pill">Discord Markdown</span>');
+    expect(html).not.toContain("#announcements");
+    expect(html).not.toContain("source-pill");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("https://cdn.example.com/image.png");
   });
@@ -104,7 +108,8 @@ describe("buildMarkdownDocument", () => {
     });
 
     expect(html).toContain("中文译文");
-    expect(html).toContain("#announcements");
+    expect(html).not.toContain("#announcements");
+    expect(html).not.toContain("source-pill");
     expect(html).toContain("<h1>挑战者 650</h1>");
     expect(html).toContain("<strong>费用：0 美元</strong>");
     expect(html).toContain('<a href="https://hotstart.net/wiki/CL650/Passenger_Edition">https://hotstart.net/wiki/CL650/Passenger_Edition</a>');

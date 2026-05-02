@@ -173,7 +173,7 @@ export class DeliveryService {
   private async processLegacyJob(job: DeliveryJob) {
     try {
       await this.napcat.sendPreparedMessage(job.qqGroupId, job.payload);
-      await this.sendDelayedBridgeNotice(job.qqGroupId, job.payload.message.sourceName);
+      await this.sendDelayedBridgeNotice(job.qqGroupId, job.payload.message.authorName);
       this.options.database.markDeliveryJobSent(job.id);
       this.options.database.recordEventLog("info", "delivery", "Delivered queued message to QQ group", {
         jobId: job.id,
@@ -270,7 +270,7 @@ export class DeliveryService {
         throw new Error(`Primary group ${fanout.primaryGroupId} has no message_id after send`);
       }
       if (!target.noticeSent) {
-        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.authorName);
       }
       markTargetSent(target, "primary", primaryMessageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -310,7 +310,7 @@ export class DeliveryService {
         this.options.database.updateDeliveryJobPayload(job.id, payload);
       }
       if (!target.noticeSent) {
-        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.authorName);
       }
       markTargetSent(target, "forward", fanout.primaryMessageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -353,7 +353,7 @@ export class DeliveryService {
         this.options.database.updateDeliveryJobPayload(job.id, payload);
       }
       if (!target.noticeSent) {
-        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.authorName);
       }
       markTargetSent(target, "original", messageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -450,11 +450,11 @@ export class DeliveryService {
     this.options.database.recordEventLog("error", "delivery", message, { error: errorMessage });
   }
 
-  private async sendDelayedBridgeNotice(groupId: string, sourceName: string) {
+  private async sendDelayedBridgeNotice(groupId: string, senderName: string) {
     if (this.bridgeNoticeDelayMs > 0) {
       await delay(this.bridgeNoticeDelayMs);
     }
-    await this.napcat.sendBridgeNotice(groupId, sourceName);
+    await this.napcat.sendBridgeNotice(groupId, senderName);
   }
 }
 
