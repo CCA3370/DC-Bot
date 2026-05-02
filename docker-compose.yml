@@ -1,0 +1,28 @@
+services:
+  dc-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dc-bot:local
+    container_name: dc-bot
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      DISCORD_TOKEN: "${DISCORD_TOKEN:-}"
+      DISCORD_GUILD_ID: "${DISCORD_GUILD_ID:-}"
+      NAPCAT_ENDPOINT: "${NAPCAT_ENDPOINT:-http://127.0.0.1:3000}"
+      NAPCAT_ACCESS_TOKEN: "${NAPCAT_ACCESS_TOKEN:-}"
+      ADMIN_HOST: "${ADMIN_HOST:-0.0.0.0}"
+      ADMIN_PORT: "${ADMIN_PORT:-8787}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-change-me}"
+      ADMIN_SESSION_SECRET: "${ADMIN_SESSION_SECRET:-replace-with-a-long-random-secret}"
+      SQLITE_PATH: "${SQLITE_PATH:-/app/data/dc-bot.sqlite}"
+      MEDIA_CACHE_DIR: "${MEDIA_CACHE_DIR:-/app/media-cache}"
+      MAX_IMAGE_BYTES: "${MAX_IMAGE_BYTES:-10485760}"
+      DISCORD_ATTACHMENT_TIMEOUT_MS: "${DISCORD_ATTACHMENT_TIMEOUT_MS:-15000}"
+      JOB_RETRY_BASE_SECONDS: "${JOB_RETRY_BASE_SECONDS:-30}"
+      JOB_RETRY_MAX_SECONDS: "${JOB_RETRY_MAX_SECONDS:-3600}"
+    volumes:
+      - "${DC_BOT_STATE_DIR:-./data}:/app/data"
+      - "${DC_BOT_MEDIA_CACHE_DIR:-./media-cache}:/app/media-cache"

@@ -19,7 +19,7 @@ Discord 到 QQ/NapCat 桥接机器人。当前实现使用 Node.js 22+、TypeScr
 - Node.js 22 或更高版本。
 - pnpm 10 或更高版本。
 - 已启用 `Guilds`、`GuildMessages`、`MessageContent` intent 的 Discord Bot。
-- NapCat OneBot HTTP 服务。
+- 已单独部署并启用 OneBot HTTP 的 NapCat 服务。
 
 ## 本地启动
 
@@ -76,10 +76,10 @@ http://127.0.0.1:8787
 
 ## Debian 12 部署
 
-仓库提供一键部署脚本：
+仓库提供 Docker Compose 部署脚本：
 
 ```bash
-sudo -E bash scripts/deploy-debian12.sh
+sudo -E bash scripts/deploy-dcbot.sh
 ```
 
 非交互部署示例：
@@ -88,10 +88,17 @@ sudo -E bash scripts/deploy-debian12.sh
 sudo DISCORD_TOKEN='你的 Discord token' \
   ADMIN_PASSWORD='强密码' \
   NAPCAT_ENDPOINT='http://127.0.0.1:3000' \
-  bash scripts/deploy-debian12.sh --yes
+  bash scripts/deploy-dcbot.sh --yes
 ```
 
-脚本会安装 Node.js 22、启用 pnpm、构建应用、写入 systemd 服务并启动 `dc-bot.service`。详细说明见 [docs/debian12-deploy.md](docs/debian12-deploy.md)。
+脚本会安装 Docker Engine 和 Docker Compose plugin，生成 `/etc/dc-bot/dc-bot.env`，同步 Compose env 文件，构建镜像并启动 `dc-bot` 容器。脚本不会安装 NapCat；请先按 NapCat 官方 Shell/Installer 文档在本机部署 NapCat，并启用 OneBot HTTP。Compose 使用 host network，默认通过 `http://127.0.0.1:3000` 连接本机 NapCat。详细说明见 [docs/debian12-deploy.md](docs/debian12-deploy.md)。
+
+手动使用 Compose 时可复制示例配置：
+
+```bash
+cp .env.compose.example .env.compose
+docker compose --env-file .env.compose up -d --build
+```
 
 ## 验证命令
 
@@ -99,6 +106,7 @@ sudo DISCORD_TOKEN='你的 Discord token' \
 pnpm lint
 pnpm test
 pnpm build
+docker compose --env-file .env.compose.example config
 ```
 
 当前测试覆盖配置加载、Markdown 转纯文本、NapCat 合并转发 payload、SQLite 路由/队列状态和图片水印尺寸。

@@ -2,22 +2,18 @@
 set -Eeuo pipefail
 
 APP_NAME="dc-bot"
-APP_USER="${APP_USER:-dc-bot}"
-APP_GROUP="${APP_GROUP:-dc-bot}"
 APP_DIR="${APP_DIR:-/opt/dc-bot}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/dc-bot}"
 STATE_DIR="${STATE_DIR:-/var/lib/dc-bot}"
-SERVICE_NAME="${SERVICE_NAME:-dc-bot.service}"
-NODE_MAJOR="${NODE_MAJOR:-22}"
-PNPM_VERSION="${PNPM_VERSION:-10.33.0}"
-RUN_TESTS="${RUN_TESTS:-1}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-${APP_DIR}/.env.compose}"
+LEGACY_SERVICE_NAME="${LEGACY_SERVICE_NAME:-dc-bot.service}"
 YES="0"
 FORCE="0"
 
 usage() {
   cat <<'EOF'
 Usage:
-  sudo -E bash scripts/deploy-debian12.sh [--yes] [--force]
+  sudo -E bash scripts/deploy-dcbot.sh [--yes] [--force]
 
 Environment variables:
   DISCORD_TOKEN             Required unless prompted interactively
@@ -28,11 +24,13 @@ Environment variables:
   ADMIN_PORT                Default: 8787
   ADMIN_PASSWORD            Required unless prompted interactively
   ADMIN_SESSION_SECRET      Auto-generated when empty
-  RUN_TESTS                 Default: 1, set 0 to skip pnpm test
+  APP_DIR                   Default: /opt/dc-bot
+  CONFIG_DIR                Default: /etc/dc-bot
+  STATE_DIR                 Default: /var/lib/dc-bot
 
 Examples:
-  sudo -E bash scripts/deploy-debian12.sh
-  sudo DISCORD_TOKEN='xxx' ADMIN_PASSWORD='change-this' bash scripts/deploy-debian12.sh --yes
+  sudo -E bash scripts/deploy-dcbot.sh
+  sudo DISCORD_TOKEN='xxx' ADMIN_PASSWORD='change-this' bash scripts/deploy-dcbot.sh --yes
 EOF
 }
 
@@ -69,7 +67,7 @@ fail() {
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    fail "Please run as root, for example: sudo -E bash scripts/deploy-debian12.sh"
+    fail "Please run as root, for example: sudo -E bash scripts/deploy-dcbot.sh"
   fi
 }
 
@@ -86,6 +84,16 @@ check_debian12() {
     fi
     log "Continuing on ${PRETTY_NAME:-unknown} because --force was provided"
   fi
+}
+
+parse_env_value() {
+  local value="$1"
+  if [[ "${value}" == \"*\" && "${value}" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+    value="${value//\\\"/\"}"
+    value="${value//\\\\/\\}"
+  fi
+  printf '%s' "${value}"
 }
 
 load_existing_env_file() {
@@ -107,16 +115,6 @@ load_existing_env_file() {
       export "${key}"
     fi
   done < "${env_file}"
-}
-
-parse_env_value() {
-  local value="$1"
-  if [[ "${value}" == \"*\" && "${value}" == *\" ]]; then
-    value="${value:1:${#value}-2}"
-    value="${value//\\\"/\"}"
-    value="${value//\\\\/\\}"
-  fi
-  printf '%s' "${value}"
 }
 
 prompt_secret() {
@@ -143,7 +141,7 @@ confirm() {
     return
   fi
   local answer
-  read -r -p "Deploy DC-Bot to ${APP_DIR} and restart ${SERVICE_NAME}? [y/N] " answer
+  read -r -p "Deploy ${APP_NAME} with Docker Compose to ${APP_DIR}? [y/N] " answer
   case "${answer}" in
     y|Y|yes|YES)
       ;;
@@ -153,61 +151,49 @@ confirm() {
   esac
 }
 
-version_major() {
-  local version="$1"
-  version="${version#v}"
-  printf '%s' "${version%%.*}"
-}
-
 install_system_packages() {
-  log "Installing Debian packages"
+  log "Installing base Debian packages"
   apt-get update
-  apt-get install -y ca-certificates curl gnupg git rsync build-essential python3 pkg-config openssl
+  apt-get install -y ca-certificates curl gnupg git rsync openssl
 }
 
-install_node_if_needed() {
-  local current_major="0"
-  if command -v node >/dev/null 2>&1; then
-    current_major="$(version_major "$(node --version)")"
-  fi
+install_docker_engine() {
+  log "Installing Docker Engine and Compose plugin from Docker apt repository"
+  local codename="${VERSION_CODENAME:-bookworm}"
+  local arch
+  arch="$(dpkg --print-architecture)"
 
-  if (( current_major >= NODE_MAJOR )); then
-    log "Node.js $(node --version) is already installed"
-    return
-  fi
+  apt-get remove -y docker.io docker-doc docker-compose podman-docker containerd runc || true
 
-  log "Installing Node.js ${NODE_MAJOR}.x from NodeSource"
-  local setup_script="/tmp/nodesource_setup_${NODE_MAJOR}.x.sh"
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" -o "${setup_script}"
-  bash "${setup_script}"
-  apt-get install -y nodejs
-  rm -f "${setup_script}"
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
 
-  current_major="$(version_major "$(node --version)")"
-  if (( current_major < NODE_MAJOR )); then
-    fail "Node.js ${NODE_MAJOR}+ is required, installed $(node --version)"
-  fi
+  cat > /etc/apt/sources.list.d/docker.list <<EOF
+deb [arch=${arch} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian ${codename} stable
+EOF
+
+  apt-get update
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  systemctl enable --now docker
+  docker version >/dev/null
+  docker compose version >/dev/null
 }
 
-install_pnpm() {
-  log "Preparing pnpm ${PNPM_VERSION}"
-  corepack enable
-  corepack prepare "pnpm@${PNPM_VERSION}" --activate
-  pnpm --version
-}
-
-ensure_user_and_dirs() {
-  log "Creating service user and directories"
-  if ! getent group "${APP_GROUP}" >/dev/null; then
-    groupadd --system "${APP_GROUP}"
-  fi
-  if ! id "${APP_USER}" >/dev/null 2>&1; then
-    useradd --system --gid "${APP_GROUP}" --home-dir "${STATE_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
-  fi
-
+ensure_dirs() {
+  log "Creating application, configuration, and state directories"
   install -d -m 0755 "${APP_DIR}"
-  install -d -m 0750 -o root -g "${APP_GROUP}" "${CONFIG_DIR}"
-  install -d -m 0750 -o "${APP_USER}" -g "${APP_GROUP}" "${STATE_DIR}" "${STATE_DIR}/media-cache"
+  install -d -m 0700 "${CONFIG_DIR}"
+  install -d -m 0750 "${STATE_DIR}" "${STATE_DIR}/media-cache"
+  chown -R 10001:10001 "${STATE_DIR}"
+}
+
+quote_env_value() {
+  local value="$1"
+  value="${value//$'\n'/}"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "${value}"
 }
 
 write_env_file() {
@@ -238,112 +224,100 @@ ADMIN_HOST=$(quote_env_value "${ADMIN_HOST}")
 ADMIN_PORT=$(quote_env_value "${ADMIN_PORT}")
 ADMIN_PASSWORD=$(quote_env_value "${ADMIN_PASSWORD}")
 ADMIN_SESSION_SECRET=$(quote_env_value "${ADMIN_SESSION_SECRET}")
-SQLITE_PATH=$(quote_env_value "${STATE_DIR}/dc-bot.sqlite")
-MEDIA_CACHE_DIR=$(quote_env_value "${STATE_DIR}/media-cache")
+SQLITE_PATH=$(quote_env_value "/app/data/dc-bot.sqlite")
+MEDIA_CACHE_DIR=$(quote_env_value "/app/media-cache")
+DC_BOT_STATE_DIR=$(quote_env_value "${STATE_DIR}")
+DC_BOT_MEDIA_CACHE_DIR=$(quote_env_value "${STATE_DIR}/media-cache")
 MAX_IMAGE_BYTES=$(quote_env_value "${MAX_IMAGE_BYTES}")
 DISCORD_ATTACHMENT_TIMEOUT_MS=$(quote_env_value "${DISCORD_ATTACHMENT_TIMEOUT_MS}")
 JOB_RETRY_BASE_SECONDS=$(quote_env_value "${JOB_RETRY_BASE_SECONDS}")
 JOB_RETRY_MAX_SECONDS=$(quote_env_value "${JOB_RETRY_MAX_SECONDS}")
 EOF
-  chown root:"${APP_GROUP}" "${env_file}"
-  chmod 0640 "${env_file}"
+  chmod 0600 "${env_file}"
 }
 
-quote_env_value() {
-  local value="$1"
-  value="${value//$'\n'/}"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  printf '"%s"' "${value}"
+remove_legacy_systemd_unit() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return
+  fi
+
+  if systemctl list-unit-files "${LEGACY_SERVICE_NAME}" >/dev/null 2>&1; then
+    log "Stopping legacy systemd service ${LEGACY_SERVICE_NAME}"
+    systemctl stop "${LEGACY_SERVICE_NAME}" || true
+    systemctl disable "${LEGACY_SERVICE_NAME}" || true
+  fi
+
+  if [[ -f "/etc/systemd/system/${LEGACY_SERVICE_NAME}" ]]; then
+    rm -f "/etc/systemd/system/${LEGACY_SERVICE_NAME}"
+    systemctl daemon-reload
+  fi
 }
 
 sync_application() {
-  local script_dir repo_root
+  local script_dir repo_root source_root target_root
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   repo_root="$(cd "${script_dir}/.." && pwd)"
+  source_root="$(realpath "${repo_root}")"
+  target_root="$(realpath -m "${APP_DIR}")"
 
-  log "Syncing application from ${repo_root} to ${APP_DIR}"
-  if systemctl list-unit-files "${SERVICE_NAME}" >/dev/null 2>&1; then
-    systemctl stop "${SERVICE_NAME}" || true
+  if [[ "${source_root}" == "${target_root}" ]]; then
+    log "Application is already in ${APP_DIR}; skipping source sync"
+    return
   fi
 
+  log "Syncing application from ${repo_root} to ${APP_DIR}"
   rsync -a --delete \
     --exclude '.git/' \
     --exclude '.env' \
     --exclude '.env.local' \
+    --exclude '.env.compose' \
     --exclude 'node_modules/' \
     --exclude '.pnpm-store/' \
     --exclude 'dist/' \
     --exclude 'data/' \
     --exclude 'media-cache/' \
     --exclude '*.log' \
+    --exclude '*.sqlite' \
+    --exclude '*.sqlite-shm' \
+    --exclude '*.sqlite-wal' \
     "${repo_root}/" "${APP_DIR}/"
 }
 
-install_application_dependencies() {
-  log "Installing application dependencies"
-  cd "${APP_DIR}"
-  pnpm install --frozen-lockfile
+sync_compose_env_file() {
+  log "Writing Compose env file ${COMPOSE_ENV_FILE}"
+  install -d -m 0755 "$(dirname "${COMPOSE_ENV_FILE}")"
+  install -m 0600 "${CONFIG_DIR}/dc-bot.env" "${COMPOSE_ENV_FILE}"
 }
 
-verify_and_build() {
-  cd "${APP_DIR}"
-  if [[ "${RUN_TESTS}" == "1" ]]; then
-    log "Running tests"
-    pnpm test
-  else
-    log "Skipping tests because RUN_TESTS=${RUN_TESTS}"
-  fi
-
-  log "Building application"
-  pnpm build
+compose() {
+  docker compose --env-file "${COMPOSE_ENV_FILE}" -f "${APP_DIR}/docker-compose.yml" "$@"
 }
 
-write_systemd_unit() {
-  log "Writing /etc/systemd/system/${SERVICE_NAME}"
-  cat > "/etc/systemd/system/${SERVICE_NAME}" <<EOF
-[Unit]
-Description=DC-Bot Discord to QQ bridge
-Wants=network-online.target
-After=network-online.target
+deploy_compose_stack() {
+  log "Validating Compose configuration"
+  compose config >/dev/null
 
-[Service]
-Type=simple
-User=${APP_USER}
-Group=${APP_GROUP}
-WorkingDirectory=${APP_DIR}
-Environment=NODE_ENV=production
-EnvironmentFile=${CONFIG_DIR}/dc-bot.env
-ExecStart=/usr/bin/node ${APP_DIR}/dist/server/index.js
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=20
-KillSignal=SIGTERM
-UMask=0077
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectHome=true
-ProtectSystem=full
-ReadWritePaths=${STATE_DIR}
+  log "Building Docker image"
+  compose build
 
-[Install]
-WantedBy=multi-user.target
-EOF
-}
-
-start_service() {
-  log "Enabling and starting ${SERVICE_NAME}"
-  systemctl daemon-reload
-  systemctl enable "${SERVICE_NAME}"
-  systemctl restart "${SERVICE_NAME}"
-  sleep 2
-  systemctl --no-pager --full status "${SERVICE_NAME}" || true
+  log "Starting Docker Compose stack"
+  compose up -d --remove-orphans
 }
 
 health_check() {
-  local url="http://127.0.0.1:${ADMIN_PORT}/api/auth/me"
+  local url="http://127.0.0.1:${ADMIN_PORT:-8787}/api/auth/me"
   log "Checking admin API: ${url}"
-  curl -fsS "${url}" >/dev/null
+
+  for _ in $(seq 1 30); do
+    if curl -fsS "${url}" >/dev/null; then
+      return
+    fi
+    sleep 1
+  done
+
+  compose ps
+  compose logs --tail=100 dc-bot || true
+  fail "Admin API did not become healthy at ${url}"
 }
 
 print_summary() {
@@ -351,24 +325,32 @@ print_summary() {
 
 Deployment completed.
 
-Service:
-  systemctl status ${SERVICE_NAME}
-  journalctl -u ${SERVICE_NAME} -f
+Docker Compose:
+  cd ${APP_DIR}
+  docker compose --env-file ${COMPOSE_ENV_FILE} ps
+  docker compose --env-file ${COMPOSE_ENV_FILE} logs -f dc-bot
 
 Admin:
-  http://<server-ip>:${ADMIN_PORT}
+  http://<server-ip>:${ADMIN_PORT:-8787}
 
 Files:
   Application: ${APP_DIR}
   Environment: ${CONFIG_DIR}/dc-bot.env
+  Compose env: ${COMPOSE_ENV_FILE}
   Data: ${STATE_DIR}
+  Media cache: ${STATE_DIR}/media-cache
+
+NapCat:
+  This script does not install NapCat. Install and configure NapCat on this Debian host.
+  The container uses host networking, so default NAPCAT_ENDPOINT is http://127.0.0.1:3000.
 
 Next manual checks:
-  1. Log in to the admin dashboard with ADMIN_PASSWORD.
-  2. Set the Discord guild/server ID in the dashboard.
-  3. Sync Discord sources.
-  4. Add QQ groups and channel routes.
-  5. Test NapCat connection and send a test message.
+  1. Confirm NapCat OneBot HTTP is reachable from the dc-bot container.
+  2. Log in to the admin dashboard with ADMIN_PASSWORD.
+  3. Set the Discord guild/server ID in the dashboard.
+  4. Sync Discord sources.
+  5. Add QQ groups and channel routes.
+  6. Test NapCat connection and send a test message.
 EOF
 }
 
@@ -380,15 +362,13 @@ main() {
   prompt_secret ADMIN_PASSWORD "Admin dashboard password"
   confirm
   install_system_packages
-  install_node_if_needed
-  install_pnpm
-  ensure_user_and_dirs
+  install_docker_engine
+  ensure_dirs
   write_env_file
+  remove_legacy_systemd_unit
   sync_application
-  install_application_dependencies
-  verify_and_build
-  write_systemd_unit
-  start_service
+  sync_compose_env_file
+  deploy_compose_stack
   health_check
   print_summary
 }
