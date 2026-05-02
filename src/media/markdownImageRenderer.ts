@@ -365,8 +365,8 @@ function buildRenderedMessageDocument(
       min-width: ${renderCardWidth}px;
       max-width: ${renderCardWidth}px;
       overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      border: 0;
+      border-radius: 0;
       background:
         linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
         repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
@@ -374,6 +374,7 @@ function buildRenderedMessageDocument(
     .card::before {
       content: "";
       display: block;
+      width: 100%;
       height: 7px;
       background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
     }

@@ -41,6 +41,9 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
     expect(html).toContain("width: 720px;");
     expect(html).toContain("width: 680px;");
+    expect(html).toContain("border: 0;");
+    expect(html).toContain("border-radius: 0;");
+    expect(html).toContain("width: 100%;");
     expect(html).toContain("<strong>Alice</strong>");
     expect(html).toContain('<span class="format-pill">Discord Markdown</span>');
     expect(html).not.toContain("#announcements");
