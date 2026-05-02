@@ -116,6 +116,29 @@ describe("buildMarkdownDocument", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 
+  it("uses the exact same image width constraints for translated and original markdown", () => {
+    const markdownHtml = buildMarkdownDocument({
+      authorName: "Alice",
+      sourceName: "announcements",
+      createdAt: new Date(0).toISOString(),
+      rawMarkdown: "# Release notes\n\nhello"
+    });
+    const translationHtml = buildTranslationDocument({
+      authorName: "Alice",
+      sourceName: "announcements",
+      createdAt: new Date(0).toISOString(),
+      translatedText: "# 发布说明\n\n你好"
+    });
+
+    expect(extractStyle(markdownHtml)).toBe(extractStyle(translationHtml));
+    expect(translationHtml).toContain("width: 720px;");
+    expect(translationHtml).toContain("min-width: 720px;");
+    expect(translationHtml).toContain("max-width: 720px;");
+    expect(translationHtml).toContain("width: 680px;");
+    expect(translationHtml).toContain("min-width: 680px;");
+    expect(translationHtml).toContain("max-width: 680px;");
+  });
+
   it("repairs DeepLX markdown artifacts before rendering translated images", () => {
     const html = buildTranslationDocument({
       authorName: "Alice",
@@ -159,3 +182,9 @@ describe("buildMarkdownDocument", () => {
     expect(html).not.toContain('<img class="avatar avatar-image"');
   });
 });
+
+function extractStyle(html: string) {
+  const style = html.match(/<style>([\s\S]*?)<\/style>/)?.[1];
+  expect(style).toBeDefined();
+  return style;
+}

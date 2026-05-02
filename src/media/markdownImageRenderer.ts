@@ -304,7 +304,22 @@ export function buildMarkdownDocument(
   message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">,
   options: AvatarRenderOptions = {}
 ) {
-  const renderedBody = renderMarkdownBody(message.rawMarkdown);
+  return buildRenderedMessageDocument(message, renderMarkdownBody(message.rawMarkdown), "Discord Markdown", options);
+}
+
+export function buildTranslationDocument(
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt"> & { translatedText: string },
+  options: AvatarRenderOptions = {}
+) {
+  return buildRenderedMessageDocument(message, renderMarkdownBody(repairTranslatedMarkdown(message.translatedText)), "中文译文", options);
+}
+
+function buildRenderedMessageDocument(
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt">,
+  renderedBody: string,
+  formatLabel: string,
+  options: AvatarRenderOptions
+) {
   const timestamp = formatTimestamp(message.createdAt);
   const authorInitials = getAuthorInitials(message.authorName);
   const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
@@ -336,6 +351,8 @@ export function buildMarkdownDocument(
       margin: 0;
       padding: ${renderBodyPadding}px;
       width: ${renderViewportWidth}px;
+      min-width: ${renderViewportWidth}px;
+      max-width: ${renderViewportWidth}px;
       background:
         linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
         linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
@@ -345,6 +362,8 @@ export function buildMarkdownDocument(
     .card {
       position: relative;
       width: ${renderCardWidth}px;
+      min-width: ${renderCardWidth}px;
+      max-width: ${renderCardWidth}px;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -433,6 +452,8 @@ export function buildMarkdownDocument(
       white-space: nowrap;
     }
     .content {
+      width: 100%;
+      max-width: ${renderCardWidth}px;
       padding: 24px 26px 30px;
       font-size: 18px;
       line-height: 1.64;
@@ -449,167 +470,7 @@ ${sharedMarkdownContentStyles}
         <strong>${escapeHtml(message.authorName)}</strong>
         <div class="meta-line">
           <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
-          <span class="format-pill">Discord Markdown</span>
-          <span class="time">${escapeHtml(timestamp)}</span>
-        </div>
-      </div>
-    </header>
-    <main class="content">${renderedBody}</main>
-  </article>
-</body>
-</html>`;
-}
-
-export function buildTranslationDocument(
-  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt"> & { translatedText: string },
-  options: AvatarRenderOptions = {}
-) {
-  const timestamp = formatTimestamp(message.createdAt);
-  const authorInitials = getAuthorInitials(message.authorName);
-  const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
-  const renderedBody = renderMarkdownBody(repairTranslatedMarkdown(message.translatedText));
-
-  return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #20211f;
-      --muted: #6d6658;
-      --paper: #fffdf7;
-      --paper-soft: #f5efe4;
-      --line: #d8ccba;
-      --teal: #17453e;
-      --teal-soft: #e1eee9;
-      --gold: #d49a2d;
-      --red: #8f3f34;
-      font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-      color: var(--ink);
-      background: #ede8dc;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      padding: ${renderBodyPadding}px;
-      width: ${renderViewportWidth}px;
-      background:
-        linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
-        #ede8dc;
-      background-size: 28px 28px;
-    }
-    .card {
-      position: relative;
-      width: ${renderCardWidth}px;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
-        repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
-    }
-    .card::before {
-      content: "";
-      display: block;
-      height: 7px;
-      background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
-    }
-    .header {
-      display: grid;
-      grid-template-columns: 48px minmax(0, 1fr);
-      gap: 12px;
-      align-items: center;
-      padding: 18px 22px 16px;
-      border-bottom: 1px solid var(--line);
-      background:
-        linear-gradient(180deg, #fffdf7, #f7f1e7);
-      color: var(--ink);
-    }
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border: 1px solid rgba(23, 69, 62, 0.24);
-      border-radius: 8px;
-      background: var(--teal);
-      color: #fff8e6;
-      line-height: 1;
-    }
-    .avatar-initials {
-      display: grid;
-      place-items: center;
-      font-size: 18px;
-      font-weight: 900;
-    }
-    .avatar-image {
-      display: block;
-      object-fit: cover;
-    }
-    .header strong,
-    .header span {
-      display: block;
-    }
-    .header strong {
-      font-size: 20px;
-      line-height: 1.15;
-      overflow-wrap: anywhere;
-    }
-    .meta-line {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 7px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      overflow-wrap: anywhere;
-    }
-    .meta-line .source-pill,
-    .meta-line .format-pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 25px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(23, 69, 62, 0.18);
-      background: var(--teal-soft);
-      color: var(--teal);
-      max-width: 460px;
-      overflow-wrap: anywhere;
-    }
-    .meta-line .format-pill {
-      border: 1px solid rgba(217, 154, 40, 0.28);
-      background: #fff1cc;
-      color: #744714;
-    }
-    .time {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0;
-      white-space: nowrap;
-    }
-    .content {
-      padding: 24px 26px 30px;
-      font-size: 18px;
-      line-height: 1.64;
-      overflow-wrap: anywhere;
-    }
-${sharedMarkdownContentStyles}
-  </style>
-</head>
-<body>
-  <article class="card" data-image-card>
-    <header class="header">
-      ${avatarHtml}
-      <div>
-        <strong>${escapeHtml(message.authorName)}</strong>
-        <div class="meta-line">
-          <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
-          <span class="format-pill">中文译文</span>
+          <span class="format-pill">${escapeHtml(formatLabel)}</span>
           <span class="time">${escapeHtml(timestamp)}</span>
         </div>
       </div>
