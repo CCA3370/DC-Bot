@@ -39,6 +39,8 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("&lt;@123&gt;");
     expect(html).toContain("[image: remote]");
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
+    expect(html).toContain("width: 720px;");
+    expect(html).toContain("width: 680px;");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("https://cdn.example.com/image.png");
   });
@@ -75,6 +77,8 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("这是中文译文。&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).toContain("data-image-card");
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
+    expect(html).toContain("width: 720px;");
+    expect(html).toContain("width: 680px;");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 

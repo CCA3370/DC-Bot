@@ -14,6 +14,11 @@ const markdown = new MarkdownIt({
   breaks: true
 });
 
+const renderViewportWidth = 720;
+const renderViewportHeight = 720;
+const renderBodyPadding = 20;
+const renderCardWidth = renderViewportWidth - renderBodyPadding * 2;
+
 markdown.renderer.rules.image = (tokens, index) => {
   const token = tokens[index];
   if (!token) {
@@ -164,8 +169,8 @@ export function buildMarkdownDocument(
     }
     body {
       margin: 0;
-      padding: 28px;
-      width: 960px;
+      padding: ${renderBodyPadding}px;
+      width: ${renderViewportWidth}px;
       background:
         linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
         linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
@@ -174,7 +179,7 @@ export function buildMarkdownDocument(
     }
     .card {
       position: relative;
-      width: 904px;
+      width: ${renderCardWidth}px;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -190,18 +195,18 @@ export function buildMarkdownDocument(
     }
     .header {
       display: grid;
-      grid-template-columns: 54px 1fr auto;
-      gap: 14px;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 12px;
       align-items: center;
-      padding: 20px 26px 18px;
+      padding: 18px 22px 16px;
       border-bottom: 1px solid var(--line);
       background:
         linear-gradient(180deg, #fffdf7, #f7f1e7);
       color: var(--ink);
     }
     .avatar {
-      width: 54px;
-      height: 54px;
+      width: 48px;
+      height: 48px;
       border: 1px solid rgba(23, 69, 62, 0.24);
       border-radius: 8px;
       background: var(--teal);
@@ -223,7 +228,7 @@ export function buildMarkdownDocument(
       display: block;
     }
     .header strong {
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
@@ -256,9 +261,6 @@ export function buildMarkdownDocument(
       color: #744714;
     }
     .time {
-      align-self: center;
-      padding-left: 18px;
-      border-left: 1px solid var(--line);
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
@@ -266,7 +268,7 @@ export function buildMarkdownDocument(
       white-space: nowrap;
     }
     .content {
-      padding: 28px 32px 34px;
+      padding: 24px 26px 30px;
       font-size: 18px;
       line-height: 1.64;
       overflow-wrap: anywhere;
@@ -442,9 +444,9 @@ export function buildMarkdownDocument(
         <div class="meta-line">
           <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
           <span class="format-pill">Discord Markdown</span>
+          <span class="time">${escapeHtml(timestamp)}</span>
         </div>
       </div>
-      <div class="time">${escapeHtml(timestamp)}</div>
     </header>
     <main class="content">${renderedBody}</main>
   </article>
@@ -485,8 +487,8 @@ export function buildTranslationDocument(
     }
     body {
       margin: 0;
-      padding: 28px;
-      width: 960px;
+      padding: ${renderBodyPadding}px;
+      width: ${renderViewportWidth}px;
       background:
         linear-gradient(90deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
         linear-gradient(180deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
@@ -494,7 +496,7 @@ export function buildTranslationDocument(
       background-size: 28px 28px;
     }
     .card {
-      width: 904px;
+      width: ${renderCardWidth}px;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -510,16 +512,16 @@ export function buildTranslationDocument(
     }
     .header {
       display: grid;
-      grid-template-columns: 54px 1fr auto;
-      gap: 14px;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 12px;
       align-items: center;
-      padding: 20px 26px 18px;
+      padding: 18px 22px 16px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(180deg, #fbfefb, #edf7f1);
     }
     .avatar {
-      width: 54px;
-      height: 54px;
+      width: 48px;
+      height: 48px;
       border: 1px solid rgba(31, 107, 83, 0.22);
       border-radius: 8px;
       background: var(--green-dark);
@@ -544,9 +546,15 @@ export function buildTranslationDocument(
       margin-bottom: 7px;
     }
     .title strong {
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.15;
       overflow-wrap: anywhere;
+    }
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
     .translation-pill,
     .source-pill {
@@ -571,9 +579,6 @@ export function buildTranslationDocument(
       max-width: 460px;
     }
     .time {
-      align-self: center;
-      padding-left: 18px;
-      border-left: 1px solid var(--line);
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
@@ -581,7 +586,7 @@ export function buildTranslationDocument(
       white-space: nowrap;
     }
     .content {
-      padding: 31px 36px 36px;
+      padding: 27px 30px 32px;
     }
     .translated-text {
       position: relative;
@@ -589,7 +594,7 @@ export function buildTranslationDocument(
       padding: 0 0 0 18px;
       border-left: 5px solid var(--green);
       color: #1e2723;
-      font-size: 22px;
+      font-size: 21px;
       font-weight: 500;
       line-height: 1.78;
       letter-spacing: 0;
@@ -617,9 +622,11 @@ export function buildTranslationDocument(
           <strong>${escapeHtml(message.authorName)}</strong>
           <span class="translation-pill">中文译文</span>
         </div>
-        <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
+        <div class="meta-line">
+          <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
+          <span class="time">${escapeHtml(timestamp)}</span>
+        </div>
       </div>
-      <div class="time">${escapeHtml(timestamp)}</div>
     </header>
     <main class="content">
       <p class="translated-text">${translatedText}</p>
@@ -638,7 +645,7 @@ async function screenshotHtml(html: string) {
 
   try {
     const page = await browser.newPage({
-      viewport: { width: 960, height: 720 },
+      viewport: { width: renderViewportWidth, height: renderViewportHeight },
       deviceScaleFactor: 1
     });
     await page.route("**/*", (route) => {
