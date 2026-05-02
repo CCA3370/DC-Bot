@@ -53,12 +53,13 @@ export class NapCatClient {
     });
     const messageId = parseMessageId(data, "send_group_forward_msg");
 
-    await this.callApi("send_group_msg", {
-      group_id: groupId,
-      message: [{ type: "text", data: { text: `⬆️有来自${payload.message.sourceName}的新消息，请留意查看哦~` } }]
-    });
+    await this.sendBridgeNotice(groupId, payload.message.sourceName);
 
     return messageId;
+  }
+
+  async sendBridgeNotice(groupId: string, sourceName: string) {
+    await this.sendGroupText(groupId, buildBridgeNoticeText(sourceName));
   }
 
   async forwardGroupSingleMessage(groupId: string, messageId: string) {
@@ -109,6 +110,10 @@ export class NapCatClient {
 
     return body.data;
   }
+}
+
+export function buildBridgeNoticeText(sourceName: string) {
+  return `⬆️有来自${sourceName}的新消息，请留意查看哦~`;
 }
 
 function parseGroupRow(row: unknown): NapCatGroup {

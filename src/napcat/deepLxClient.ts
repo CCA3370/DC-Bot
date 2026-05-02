@@ -47,11 +47,19 @@ export class DeepLxClient {
         })
       });
 
+      const responseText = await response.text();
       if (!response.ok) {
-        throw new Error(`DeepLX translate failed with HTTP ${response.status}`);
+        throw new Error(`DeepLX translate failed with HTTP ${response.status}: ${summarizeResponseText(responseText)}`);
       }
 
-      return parseDeepLxTranslationResponse(await response.json());
+      let body: unknown;
+      try {
+        body = JSON.parse(responseText);
+      } catch {
+        throw new Error(`DeepLX translate returned non-JSON response: ${summarizeResponseText(responseText)}`);
+      }
+
+      return parseDeepLxTranslationResponse(body);
     } finally {
       clearTimeout(timeout);
     }
@@ -74,7 +82,7 @@ export function parseDeepLxTranslationResponse(body: unknown) {
     return response.result.trim();
   }
 
-  throw new Error("DeepLX translate returned an invalid response");
+  throw new Error(`DeepLX translate returned an invalid response: ${summarizeResponseBody(body)}`);
 }
 
 function parseTranslationValue(value: unknown): string | null {
@@ -95,4 +103,20 @@ function parseTranslationValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function summarizeResponseBody(body: unknown) {
+  try {
+    return summarizeResponseText(JSON.stringify(body));
+  } catch {
+    return "[unserializable response]";
+  }
+}
+
+function summarizeResponseText(text: string) {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length === 0) {
+    return "[empty response body]";
+  }
+  return compact.length > 500 ? `${compact.slice(0, 500)}...` : compact;
 }

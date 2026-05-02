@@ -41,4 +41,27 @@ describe("DeepLxClient", () => {
     expect(parseDeepLxTranslationResponse({ data: { translation: "你好" } })).toBe("你好");
     expect(parseDeepLxTranslationResponse({ translations: [{ text: "你好" }] })).toBe("你好");
   });
+
+  it("includes the DeepLX response body in HTTP errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ code: 429, message: "quota exceeded" }), { status: 429 }))
+    );
+
+    const client = new DeepLxClient({
+      endpoint: "http://127.0.0.1:1188",
+      token: "",
+      timeoutMs: 1000
+    });
+
+    await expect(client.translateToChinese("hello")).rejects.toThrow(
+      'DeepLX translate failed with HTTP 429: {"code":429,"message":"quota exceeded"}'
+    );
+  });
+
+  it("includes invalid DeepLX response details in parse errors", () => {
+    expect(() => parseDeepLxTranslationResponse({ code: 500, message: "backend unavailable" })).toThrow(
+      'DeepLX translate returned an invalid response: {"code":500,"message":"backend unavailable"}'
+    );
+  });
 });

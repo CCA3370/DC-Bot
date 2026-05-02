@@ -52,6 +52,68 @@ describe("DeliveryService fanout delivery", () => {
       { group_id: "10002", message_id: "9001" },
       { group_id: "10003", message_id: "9001" }
     ]);
+    expect(calls.filter((call) => call.action === "send_group_msg").map((call) => call.body)).toEqual([
+      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] },
+      { group_id: "10002", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] },
+      { group_id: "10003", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] }
+    ]);
+    expect(existsSync(mediaPath)).toBe(false);
+
+    database.close();
+  });
+
+  it("retries a forwarded group notice without forwarding the same merged message twice", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-fanout-"));
+    const mediaPath = await writeCachedImage(directory, "markdown.png");
+    const database = new AppDatabase(join(directory, "test.sqlite"));
+    const service = createService(database, directory);
+    let secondaryNoticeAttempts = 0;
+    const calls = mockNapCatCalls((call) => {
+      if (call.action === "send_group_forward_msg") {
+        return okResponse({ message_id: "9001" });
+      }
+      if (call.action === "send_group_msg" && call.body.group_id === "10002") {
+        secondaryNoticeAttempts += 1;
+        if (secondaryNoticeAttempts === 1) {
+          return failedResponse("notice blocked");
+        }
+      }
+      return okResponse({});
+    });
+
+    const jobId = database.createDeliveryJob(
+      "m1",
+      "source-1",
+      "10001",
+      createPayload(mediaPath, createFanout(["10001", "10002"], "10001"))
+    );
+
+    await service.processJobById(jobId);
+
+    expect(database.getDeliveryJob(jobId)?.status).toBe("failed");
+    expect(getTarget(database, jobId, "10002")).toMatchObject({
+      status: "failed",
+      deliveryMethod: "forward",
+      primaryMessageId: "9001",
+      noticeSent: false,
+      forwardFailureCount: 0,
+      lastError: "NapCat send_group_msg failed: notice blocked"
+    });
+    expect(calls.filter((call) => call.action === "forward_group_single_msg")).toHaveLength(1);
+    expect(existsSync(mediaPath)).toBe(true);
+
+    await service.processJobById(jobId);
+
+    expect(database.getDeliveryJob(jobId)?.status).toBe("sent");
+    expect(getTarget(database, jobId, "10002")).toMatchObject({
+      status: "sent",
+      deliveryMethod: "forward",
+      primaryMessageId: "9001",
+      noticeSent: true,
+      forwardFailureCount: 0
+    });
+    expect(calls.filter((call) => call.action === "forward_group_single_msg")).toHaveLength(1);
+    expect(calls.filter((call) => call.action === "send_group_msg" && call.body.group_id === "10002")).toHaveLength(2);
     expect(existsSync(mediaPath)).toBe(false);
 
     database.close();
@@ -231,6 +293,7 @@ function createFanout(targetGroupIds: string[], primaryGroupId: string): FanoutD
       status: "pending",
       deliveryMethod: groupId === primaryGroupId ? "primary" : "forward",
       primaryMessageId: null,
+      noticeSent: false,
       forwardFailureCount: 0,
       fallbackLogged: false,
       lastError: null,

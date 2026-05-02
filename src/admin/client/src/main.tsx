@@ -709,7 +709,10 @@ function App() {
                 <div className={`log-row ${log.level}`} key={log.id}>
                   <span>{new Date(log.createdAt).toLocaleString()}</span>
                   <strong>{log.source}</strong>
-                  <p>{log.message}</p>
+                  <div>
+                    <p>{log.message}</p>
+                    {log.metadata && <pre>{JSON.stringify(log.metadata, null, 2)}</pre>}
+                  </div>
                 </div>
               ))}
             </div>

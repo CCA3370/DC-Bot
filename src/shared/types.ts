@@ -122,6 +122,7 @@ export interface FanoutTargetState {
   status: FanoutTargetStatus;
   deliveryMethod: FanoutDeliveryMethod;
   primaryMessageId: string | null;
+  noticeSent: boolean;
   forwardFailureCount: number;
   fallbackLogged: boolean;
   lastError: string | null;

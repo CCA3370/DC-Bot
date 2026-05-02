@@ -496,6 +496,26 @@ nav button.active {
   color: #706650;
 }
 
+.log-row p {
+  overflow-wrap: anywhere;
+}
+
+.log-row pre {
+  margin: 7px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 9px 10px;
+  border: 1px solid #ddd2bd;
+  border-radius: 7px;
+  background: #fbfaf5;
+  color: #33312b;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;

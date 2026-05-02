@@ -269,11 +269,18 @@ export class DeliveryService {
     }
 
     try {
-      await this.napcat.forwardGroupSingleMessage(target.groupId, fanout.primaryMessageId);
+      if (target.primaryMessageId !== fanout.primaryMessageId) {
+        await this.napcat.forwardGroupSingleMessage(target.groupId, fanout.primaryMessageId);
+        target.primaryMessageId = fanout.primaryMessageId;
+        target.deliveryMethod = "forward";
+      }
+      await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
       markTargetSent(target, "forward", fanout.primaryMessageId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      target.forwardFailureCount += 1;
+      if (target.primaryMessageId !== fanout.primaryMessageId) {
+        target.forwardFailureCount += 1;
+      }
       markTargetFailed(target, errorMessage);
       failedTargets.push({ groupId: target.groupId, error: errorMessage });
     }
@@ -406,6 +413,7 @@ function createFanoutState(targetGroupIds: string[], primaryGroupId: string): Fa
       status: "pending",
       deliveryMethod: groupId === primaryGroupId ? "primary" : "forward",
       primaryMessageId: null,
+      noticeSent: false,
       forwardFailureCount: 0,
       fallbackLogged: false,
       lastError: null,
@@ -446,6 +454,7 @@ function normalizeFanoutTarget(groupId: string, primaryGroupId: string, target?:
     status: target?.status ?? "pending",
     deliveryMethod: target?.deliveryMethod ?? (groupId === primaryGroupId ? "primary" : "forward"),
     primaryMessageId: target?.primaryMessageId ?? null,
+    noticeSent: target?.noticeSent ?? (target?.status === "sent"),
     forwardFailureCount: target?.forwardFailureCount ?? 0,
     fallbackLogged: target?.fallbackLogged ?? false,
     lastError: target?.lastError ?? null,
@@ -457,6 +466,7 @@ function markTargetSent(target: FanoutTargetState, deliveryMethod: FanoutTargetS
   target.status = "sent";
   target.deliveryMethod = deliveryMethod;
   target.primaryMessageId = primaryMessageId;
+  target.noticeSent = true;
   target.lastError = null;
   target.sentAt = new Date().toISOString();
 }
