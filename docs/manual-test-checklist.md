@@ -4,13 +4,15 @@
 
 - `.env` 中已设置真实 `DISCORD_TOKEN`、`ADMIN_PASSWORD`、`ADMIN_SESSION_SECRET`。
 - NapCat OneBot HTTP 服务可访问，`NAPCAT_ENDPOINT` 指向正确地址。
-- Discord Bot 已加入 guild `1331633353648111697`，并启用 `Guilds`、`GuildMessages`、`MessageContent` intent。
+- Discord Bot 已加入准备监听的 guild，并启用 `Guilds`、`GuildMessages`、`MessageContent` intent。
 - 运行 `pnpm lint`、`pnpm test`、`pnpm build` 均通过。
 
 ## 后台配置
 
 - 打开 `http://127.0.0.1:8787` 后未登录状态无法访问 `/api/status`。
 - 使用 `ADMIN_PASSWORD` 登录成功，退出后 API 返回 401。
+- 在“运行总览”设置监听 Discord 服务器 ID，保存后服务日志显示 Discord 连接重启。
+- 修改监听 Discord 服务器 ID 后重新同步来源，列表切换到新服务器的频道和线程。
 - 点击“来源”里的同步，能看到普通文本频道和活动线程。
 - 新增 QQ 群后刷新仍存在，停用后不会作为有效目标。
 - 新增频道到 QQ 群路由后，路由列表显示来源、类型、群名和群号。

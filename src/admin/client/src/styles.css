@@ -255,12 +255,28 @@ nav button.active {
 }
 
 .action-row,
+.settings-row,
 .inline-form {
   display: grid;
   grid-template-columns: auto minmax(150px, 240px) 1fr auto;
   gap: 10px;
   padding: 14px;
   align-items: center;
+}
+
+.settings-row {
+  grid-template-columns: 1fr minmax(260px, 360px) auto;
+}
+
+.settings-row strong,
+.settings-row span {
+  display: block;
+}
+
+.settings-row span {
+  color: #706650;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .table-panel {
@@ -410,6 +426,7 @@ nav button.active {
   }
 
   .action-row,
+  .settings-row,
   .inline-form {
     grid-template-columns: 1fr;
   }

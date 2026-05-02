@@ -21,7 +21,7 @@ Usage:
 
 Environment variables:
   DISCORD_TOKEN             Required unless prompted interactively
-  DISCORD_GUILD_ID          Default: 1331633353648111697
+  DISCORD_GUILD_ID          Optional initial Discord guild/server ID; can be set in the admin dashboard
   NAPCAT_ENDPOINT           Default: http://127.0.0.1:3000
   NAPCAT_ACCESS_TOKEN       Optional
   ADMIN_HOST                Default: 0.0.0.0
@@ -214,7 +214,7 @@ write_env_file() {
   log "Writing ${CONFIG_DIR}/dc-bot.env"
   local env_file="${CONFIG_DIR}/dc-bot.env"
 
-  : "${DISCORD_GUILD_ID:=1331633353648111697}"
+  : "${DISCORD_GUILD_ID:=}"
   : "${NAPCAT_ENDPOINT:=http://127.0.0.1:3000}"
   : "${NAPCAT_ACCESS_TOKEN:=}"
   : "${ADMIN_HOST:=0.0.0.0}"
@@ -365,9 +365,10 @@ Files:
 
 Next manual checks:
   1. Log in to the admin dashboard with ADMIN_PASSWORD.
-  2. Sync Discord sources.
-  3. Add QQ groups and channel routes.
-  4. Test NapCat connection and send a test message.
+  2. Set the Discord guild/server ID in the dashboard.
+  3. Sync Discord sources.
+  4. Add QQ groups and channel routes.
+  5. Test NapCat connection and send a test message.
 EOF
 }
 

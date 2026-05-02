@@ -19,6 +19,8 @@ export interface AdminServerOptions {
   database: AppDatabase;
   delivery: DeliveryService;
   logger: Logger;
+  getDiscordGuildId: () => string;
+  setDiscordGuildId: (guildId: string) => Promise<void>;
   syncDiscordChannels: () => Promise<void>;
 }
 
@@ -111,7 +113,7 @@ export class AdminServer {
       const deliveryStats = this.options.database.getDeliveryStats();
       return {
         discord: {
-          guildId: this.options.config.discord.guildId,
+          guildId: this.options.getDiscordGuildId(),
           tokenConfigured: this.options.config.discord.token.length > 0
         },
         napcat: {
@@ -125,6 +127,17 @@ export class AdminServer {
           jobs: this.options.database.countTable("delivery_jobs")
         },
         delivery: deliveryStats
+      };
+    });
+
+    this.app.patch("/api/settings/discord", async (request) => {
+      const body = discordSettingsSchema.parse(request.body);
+      await this.options.setDiscordGuildId(body.guildId);
+      return {
+        discord: {
+          guildId: this.options.getDiscordGuildId(),
+          tokenConfigured: this.options.config.discord.token.length > 0
+        }
       };
     });
 
@@ -280,6 +293,10 @@ const idParamsSchema = z.object({
 const testSendSchema = z.object({
   groupId: z.string().regex(/^\d+$/, "QQ群号必须是数字"),
   text: z.string().min(1, "测试消息不能为空").max(1000, "测试消息过长")
+});
+
+const discordSettingsSchema = z.object({
+  guildId: z.string().trim().regex(/^\d{15,25}$/, "Discord 服务器 ID 必须是 15-25 位数字")
 });
 
 function safeEqual(left: string, right: string) {

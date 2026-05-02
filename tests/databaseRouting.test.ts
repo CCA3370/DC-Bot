@@ -10,6 +10,9 @@ describe("AppDatabase routing and delivery jobs", () => {
     const directory = await mkdtemp(join(tmpdir(), "dc-bot-db-"));
     const database = new AppDatabase(join(directory, "test.sqlite"));
 
+    database.setSetting("discord.guild_id", "123456789012345678");
+    expect(database.getSetting("discord.guild_id")).toBe("123456789012345678");
+
     database.upsertDiscordChannels([
       {
         id: "discord-channel-1",

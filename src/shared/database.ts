@@ -91,6 +91,23 @@ export class AppDatabase {
       .run(level, source, message, metadata ? JSON.stringify(metadata) : null, new Date().toISOString());
   }
 
+  getSetting(key: string) {
+    const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as unknown as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  setSetting(key: string, value: string) {
+    this.db
+      .prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = excluded.updated_at`
+      )
+      .run(key, value, new Date().toISOString());
+  }
+
   listEventLogs(limit = 100): EventLogEntry[] {
     const rows = this.db
       .prepare(

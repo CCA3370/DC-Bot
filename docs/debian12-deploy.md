@@ -46,7 +46,7 @@ sudo DISCORD_TOKEN='你的 Discord token' \
 
 可选环境变量：
 
-- `DISCORD_GUILD_ID`：默认 `1331633353648111697`
+- `DISCORD_GUILD_ID`：可选初始 Discord 服务器 ID，也可以部署后在后台面板中设置
 - `NAPCAT_ACCESS_TOKEN`：NapCat access token，没有可留空
 - `ADMIN_HOST`：默认 `0.0.0.0`
 - `ADMIN_PORT`：默认 `8787`
@@ -78,11 +78,12 @@ http://<服务器 IP>:8787
 后台配置顺序：
 
 1. 登录。
-2. 同步 Discord 频道和线程。
-3. 新增 QQ 群。
-4. 配置频道到 QQ 群的路由。
-5. 测试 NapCat 连接。
-6. 发送测试消息。
+2. 设置监听 Discord 服务器 ID。
+3. 同步 Discord 频道和线程。
+4. 新增 QQ 群。
+5. 配置频道到 QQ 群的路由。
+6. 测试 NapCat 连接。
+7. 发送测试消息。
 
 ## 更新部署
 

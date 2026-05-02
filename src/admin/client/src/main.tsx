@@ -53,6 +53,7 @@ function App() {
   const [logs, setLogs] = useState<EventLogEntry[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [guildForm, setGuildForm] = useState("");
   const [groupForm, setGroupForm] = useState({ groupId: "", name: "" });
   const [routeForm, setRouteForm] = useState({ sourceId: "", qqGroupId: "" });
   const [testForm, setTestForm] = useState({ groupId: "", text: "DC-Bot 测试消息" });
@@ -83,6 +84,7 @@ function App() {
         api<{ logs: EventLogEntry[] }>("/api/logs")
       ]);
       setStatus(nextStatus);
+      setGuildForm(nextStatus.discord.guildId);
       setChannels(channelResponse.channels);
       setGroups(groupResponse.groups);
       setRoutes(routeResponse.routes);
@@ -124,6 +126,17 @@ function App() {
       setChannels(response.channels);
       await reloadAll();
     }, "Discord 来源已同步");
+  }
+
+  async function saveDiscordSettings() {
+    await mutate(async () => {
+      const response = await api<{ discord: StatusResponse["discord"] }>("/api/settings/discord", {
+        method: "PATCH",
+        body: JSON.stringify({ guildId: guildForm })
+      });
+      setStatus((current) => (current ? { ...current, discord: response.discord } : current));
+      await reloadAll();
+    }, "监听服务器已更新，Discord 连接已重启");
   }
 
   async function saveGroup() {
@@ -278,7 +291,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Guild {status?.discord.guildId ?? "--"}</p>
+            <p className="eyebrow">Guild {status?.discord.guildId || "未设置"}</p>
             <h1>{panelTitle(panel)}</h1>
           </div>
           <button onClick={() => void reloadAll()} disabled={busy}>
@@ -292,6 +305,7 @@ function App() {
         {panel === "overview" && status && (
           <section className="grid metrics">
             <Metric label="Discord Token" value={status.discord.tokenConfigured ? "已配置" : "未配置"} />
+            <Metric label="监听服务器" value={status.discord.guildId || "未设置"} tone={status.discord.guildId ? "ok" : "warn"} />
             <Metric label="NapCat" value={status.napcat.endpoint} />
             <Metric label="来源" value={String(status.counts.channels)} />
             <Metric label="QQ群" value={String(status.counts.groups)} />
@@ -299,6 +313,22 @@ function App() {
             <Metric label="待发送" value={String(status.delivery.pending)} tone={status.delivery.pending > 0 ? "warn" : "ok"} />
             <Metric label="失败" value={String(status.delivery.failed)} tone={status.delivery.failed > 0 ? "bad" : "ok"} />
             <Metric label="已发送" value={String(status.delivery.sent)} />
+            <section className="wide settings-row">
+              <div>
+                <strong>监听 Discord 服务器 ID</strong>
+                <span>保存后会重启 Discord 连接，并在同步来源时使用新的服务器。</span>
+              </div>
+              <input
+                value={guildForm}
+                onChange={(event) => setGuildForm(event.target.value)}
+                inputMode="numeric"
+                placeholder="输入 Discord Guild / Server ID"
+              />
+              <button onClick={() => void saveDiscordSettings()} disabled={busy || !guildForm}>
+                <RefreshCw size={17} />
+                保存并重连
+              </button>
+            </section>
             <section className="wide action-row">
               <button onClick={() => void testNapCat()} disabled={busy}>
                 <Activity size={17} />

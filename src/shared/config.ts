@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().optional().default(""),
-  DISCORD_GUILD_ID: z.string().default("1331633353648111697"),
+  DISCORD_GUILD_ID: z.string().optional().default(""),
   NAPCAT_ENDPOINT: z.string().url().default("http://127.0.0.1:3000"),
   NAPCAT_ACCESS_TOKEN: z.string().optional().default(""),
   ADMIN_HOST: z.string().default("127.0.0.1"),
@@ -25,7 +25,7 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
   return {
     discord: {
       token: parsed.DISCORD_TOKEN,
-      guildId: parsed.DISCORD_GUILD_ID,
+      guildId: parsed.DISCORD_GUILD_ID.trim(),
       attachmentTimeoutMs: parsed.DISCORD_ATTACHMENT_TIMEOUT_MS
     },
     napcat: {

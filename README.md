@@ -4,7 +4,7 @@ Discord 到 QQ/NapCat 桥接机器人。当前实现使用 Node.js 22+、TypeScr
 
 ## 功能范围
 
-- 监听指定 Discord guild `1331633353648111697` 的文本频道和线程消息。
+- 监听后台配置的 Discord guild 文本频道和线程消息。
 - 将 Discord 文本转换为更适合 QQ 展示的纯文本。
 - 下载图片附件，校验 MIME/大小，并在右下角添加 `#{来源频道名}` 或线程名水印。
 - 对每个目标 QQ 群发送一次 OneBot 合并转发：文本节点独立，图片集中在一个图片节点。
@@ -44,7 +44,7 @@ pnpm dev:admin
 复制 `.env.example` 为 `.env` 后配置：
 
 - `DISCORD_TOKEN`：Discord Bot token。
-- `DISCORD_GUILD_ID`：默认 `1331633353648111697`。
+- `DISCORD_GUILD_ID`：可选初始 Discord 服务器 ID；也可以在后台面板中设置和修改。
 - `NAPCAT_ENDPOINT`：NapCat OneBot HTTP 地址，例如 `http://127.0.0.1:3000`。
 - `NAPCAT_ACCESS_TOKEN`：NapCat access token，没有则留空。
 - `ADMIN_PASSWORD`：后台登录密码。
@@ -65,11 +65,12 @@ http://127.0.0.1:8787
 后台操作顺序：
 
 1. 登录。
-2. 在“来源”里同步 Discord 频道和线程。
-3. 在“路由”里新增 QQ 群。
-4. 将 Discord 来源映射到一个或多个 QQ 群。
-5. 在“运行总览”测试 NapCat 连接和测试发送。
-6. 在“发送队列”里查看失败任务并手动重发。
+2. 在“运行总览”里设置监听 Discord 服务器 ID。
+3. 在“来源”里同步 Discord 频道和线程。
+4. 在“路由”里新增 QQ 群。
+5. 将 Discord 来源映射到一个或多个 QQ 群。
+6. 在“运行总览”测试 NapCat 连接和测试发送。
+7. 在“发送队列”里查看失败任务并手动重发。
 
 未配置路由的 Discord 消息会被忽略并写入事件日志。
 
