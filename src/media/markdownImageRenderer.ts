@@ -467,7 +467,7 @@ export function buildTranslationDocument(
   const timestamp = formatTimestamp(message.createdAt);
   const authorInitials = getAuthorInitials(message.authorName);
   const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
-  const renderedBody = renderMarkdownBody(message.translatedText);
+  const renderedBody = renderMarkdownBody(repairTranslatedMarkdown(message.translatedText));
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -476,19 +476,18 @@ export function buildTranslationDocument(
   <style>
     :root {
       color-scheme: light;
-      --ink: #1f2522;
-      --muted: #617168;
-      --line: #c9d8d0;
-      --teal: #1f6b53;
-      --teal-soft: #e4f2ec;
-      --green-dark: #123f34;
-      --paper: #fbfefb;
-      --paper-soft: #edf7f1;
-      --gold: #d99a28;
+      --ink: #20211f;
+      --muted: #6d6658;
+      --paper: #fffdf7;
+      --paper-soft: #f5efe4;
+      --line: #d8ccba;
+      --teal: #17453e;
+      --teal-soft: #e1eee9;
+      --gold: #d49a2d;
       --red: #8f3f34;
       font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
       color: var(--ink);
-      background: #e6eee8;
+      background: #ede8dc;
     }
     * {
       box-sizing: border-box;
@@ -498,19 +497,20 @@ export function buildTranslationDocument(
       padding: ${renderBodyPadding}px;
       width: ${renderViewportWidth}px;
       background:
-        linear-gradient(90deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
-        #e6eee8;
+        linear-gradient(90deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(23, 69, 62, 0.055) 1px, transparent 1px),
+        #ede8dc;
       background-size: 28px 28px;
     }
     .card {
+      position: relative;
       width: ${renderCardWidth}px;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
       background:
-        linear-gradient(180deg, rgba(251, 254, 251, 0.98), rgba(251, 254, 251, 0.98)),
-        repeating-linear-gradient(135deg, rgba(31, 107, 83, 0.045) 0 1px, transparent 1px 18px);
+        linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 253, 247, 0.98)),
+        repeating-linear-gradient(135deg, rgba(212, 154, 45, 0.05) 0 1px, transparent 1px 16px);
     }
     .card::before {
       content: "";
@@ -525,15 +525,17 @@ export function buildTranslationDocument(
       align-items: center;
       padding: 18px 22px 16px;
       border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, #fbfefb, #edf7f1);
+      background:
+        linear-gradient(180deg, #fffdf7, #f7f1e7);
+      color: var(--ink);
     }
     .avatar {
       width: 48px;
       height: 48px;
-      border: 1px solid rgba(31, 107, 83, 0.22);
+      border: 1px solid rgba(23, 69, 62, 0.24);
       border-radius: 8px;
       background: var(--teal);
-      color: #fff9e8;
+      color: #fff8e6;
       line-height: 1;
     }
     .avatar-initials {
@@ -546,14 +548,11 @@ export function buildTranslationDocument(
       display: block;
       object-fit: cover;
     }
-    .title {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 7px;
+    .header strong,
+    .header span {
+      display: block;
     }
-    .title strong {
+    .header strong {
       font-size: 20px;
       line-height: 1.15;
       overflow-wrap: anywhere;
@@ -562,29 +561,29 @@ export function buildTranslationDocument(
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      align-items: center;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
     }
-    .translation-pill,
-    .source-pill {
+    .meta-line .source-pill,
+    .meta-line .format-pill {
       display: inline-flex;
       align-items: center;
       min-height: 25px;
       padding: 4px 9px;
       border-radius: 999px;
-      font-size: 13px;
-      font-weight: 800;
+      border: 1px solid rgba(23, 69, 62, 0.18);
+      background: var(--teal-soft);
+      color: var(--teal);
+      max-width: 460px;
       overflow-wrap: anywhere;
     }
-    .translation-pill {
-      border: 1px solid rgba(31, 107, 83, 0.2);
-      background: var(--teal-soft);
-      color: var(--green-dark);
-    }
-    .source-pill {
+    .meta-line .format-pill {
       border: 1px solid rgba(217, 154, 40, 0.28);
-      background: #fff2cf;
+      background: #fff1cc;
       color: #744714;
-      max-width: 460px;
     }
     .time {
       color: var(--muted);
@@ -594,7 +593,7 @@ export function buildTranslationDocument(
       white-space: nowrap;
     }
     .content {
-      padding: 27px 30px 32px;
+      padding: 24px 26px 30px;
       font-size: 18px;
       line-height: 1.64;
       overflow-wrap: anywhere;
@@ -607,12 +606,10 @@ ${sharedMarkdownContentStyles}
     <header class="header">
       ${avatarHtml}
       <div>
-        <div class="title">
-          <strong>${escapeHtml(message.authorName)}</strong>
-          <span class="translation-pill">中文译文</span>
-        </div>
+        <strong>${escapeHtml(message.authorName)}</strong>
         <div class="meta-line">
           <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
+          <span class="format-pill">中文译文</span>
           <span class="time">${escapeHtml(timestamp)}</span>
         </div>
       </div>
@@ -722,6 +719,131 @@ function renderAvatar(authorName: string, authorInitials: string, authorAvatarDa
 
 function renderMarkdownBody(value: string) {
   return markdown.render(value.trim());
+}
+
+export function repairTranslatedMarkdown(value: string) {
+  const lines = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  let inFence = false;
+  let fenceMarker: "`" | "~" | null = null;
+
+  return lines
+    .map((line) => {
+      const fence = line.match(/^ {0,3}(`{3,}|~{3,})/);
+      if (fence?.[1]) {
+        const marker = fence[1][0] as "`" | "~";
+        if (!inFence) {
+          inFence = true;
+          fenceMarker = marker;
+        } else if (marker === fenceMarker) {
+          inFence = false;
+          fenceMarker = null;
+        }
+        return line;
+      }
+
+      if (inFence) {
+        return line;
+      }
+
+      return removeUnmatchedSingleAsterisks(normalizeUnderscoreEmphasis(line));
+    })
+    .join("\n")
+    .trim();
+}
+
+function normalizeUnderscoreEmphasis(value: string) {
+  return mapOutsideInlineCode(value, (segment) => segment.replace(/(^|[^\w/])__([^_\n]*\S[^_\n]*?)__(?=$|[^\w/])/g, "$1**$2**"));
+}
+
+function removeUnmatchedSingleAsterisks(value: string) {
+  return mapOutsideInlineCode(value, (segment) => {
+    const markers = collectSingleAsteriskMarkers(segment);
+    if (markers.length === 0) {
+      return segment;
+    }
+
+    const remove = new Set<number>();
+    const openMarkers: number[] = [];
+    for (const marker of markers) {
+      if (marker.canClose && openMarkers.length > 0) {
+        openMarkers.pop();
+        continue;
+      }
+
+      if (marker.canOpen) {
+        openMarkers.push(marker.index);
+        continue;
+      }
+
+      if (marker.canClose) {
+        remove.add(marker.index);
+      }
+    }
+
+    for (const index of openMarkers) {
+      remove.add(index);
+    }
+
+    let repaired = "";
+    for (let index = 0; index < segment.length; index += 1) {
+      if (!remove.has(index)) {
+        repaired += segment[index];
+      }
+    }
+    return repaired;
+  });
+}
+
+function collectSingleAsteriskMarkers(value: string) {
+  const markers: Array<{ index: number; canOpen: boolean; canClose: boolean }> = [];
+
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== "*" || value[index - 1] === "\\" || value[index - 1] === "*" || value[index + 1] === "*") {
+      continue;
+    }
+
+    const leadingWhitespaceLength = value.match(/^\s*/)?.[0].length ?? 0;
+    if (index === leadingWhitespaceLength && /\s/.test(value[index + 1] ?? "")) {
+      continue;
+    }
+
+    const previous = value[index - 1] ?? "";
+    const next = value[index + 1] ?? "";
+    markers.push({
+      index,
+      canOpen: next.length > 0 && !/\s/.test(next),
+      canClose: previous.length > 0 && !/\s/.test(previous)
+    });
+  }
+
+  return markers;
+}
+
+function mapOutsideInlineCode(value: string, transform: (segment: string) => string) {
+  let result = "";
+  let index = 0;
+
+  while (index < value.length) {
+    const start = value.indexOf("`", index);
+    if (start === -1) {
+      result += transform(value.slice(index));
+      break;
+    }
+
+    result += transform(value.slice(index, start));
+
+    const marker = value.slice(start).match(/^`+/)?.[0] ?? "`";
+    const end = value.indexOf(marker, start + marker.length);
+    if (end === -1) {
+      result += value.slice(start);
+      break;
+    }
+
+    result += value.slice(start, end + marker.length);
+    index = end + marker.length;
+  }
+
+  return result;
 }
 
 function escapeHtml(value: string) {

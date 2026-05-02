@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMarkdownDocument, buildTranslationDocument } from "../src/media/markdownImageRenderer.js";
+import { buildMarkdownDocument, buildTranslationDocument, repairTranslatedMarkdown } from "../src/media/markdownImageRenderer.js";
 
 describe("buildMarkdownDocument", () => {
   it("renders Discord markdown features into a browser document", () => {
@@ -114,6 +114,34 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("width: 720px;");
     expect(html).toContain("width: 680px;");
     expect(html).not.toContain("<script>alert(1)</script>");
+  });
+
+  it("repairs DeepLX markdown artifacts before rendering translated images", () => {
+    const html = buildTranslationDocument({
+      authorName: "Alice",
+      sourceName: "announcements",
+      createdAt: new Date(0).toISOString(),
+      translatedText: [
+        "# 挑战者 650 \"乘客版\" 已登陆",
+        "",
+        "我们推出了挑战者 650* 的**乘客版**。",
+        "",
+        "没错。挑战者 650 乘客版是__免费__的。"
+      ].join("\n")
+    });
+
+    expect(html).toContain("我们推出了挑战者 650 的<strong>乘客版</strong>。");
+    expect(html).toContain("是<strong>免费</strong>的。");
+    expect(html).not.toContain("650*");
+    expect(html).not.toContain("__免费__");
+    expect(html).not.toContain("translation-pill");
+    expect(html).toContain('<span class="format-pill">中文译文</span>');
+  });
+
+  it("does not repair translated markdown inside code spans or fenced code blocks", () => {
+    expect(
+      repairTranslatedMarkdown(["这里是 `__免费__` 和 `650*`。", "", "```", "__免费__", "650*", "```"].join("\n"))
+    ).toBe(["这里是 `__免费__` 和 `650*`。", "", "```", "__免费__", "650*", "```"].join("\n"));
   });
 
   it("falls back to initials when a Discord avatar data URI is unavailable", () => {
