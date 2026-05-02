@@ -72,10 +72,12 @@ export class DeliveryService {
       this.markdownRenderer.renderMessage(message),
       this.imageProcessor.prepareImages(message)
     ]);
+    const translatedImage = await this.renderTranslatedImage(message, translatedText);
 
     const payload = {
       message,
       translatedText,
+      translatedImage,
       markdownImage,
       images
     };
@@ -165,7 +167,21 @@ export class DeliveryService {
       return await this.deeplx.translateToChinese(text);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.options.database.recordEventLog("warn", "deeplx", "DeepLX translation failed; sending markdown image without text", {
+      this.options.database.recordEventLog("warn", "deeplx", "DeepLX translation failed; sending markdown image without translation image", {
+        discordMessageId: message.id,
+        sourceId: message.sourceId,
+        error: errorMessage
+      });
+      return null;
+    }
+  }
+
+  private async renderTranslatedImage(message: NormalizedDiscordMessage, translatedText: string | null) {
+    try {
+      return await this.markdownRenderer.renderTranslation(message, translatedText);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.options.database.recordEventLog("warn", "delivery", "Failed to render translated text image; sending markdown image without translation", {
         discordMessageId: message.id,
         sourceId: message.sourceId,
         error: errorMessage

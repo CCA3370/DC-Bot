@@ -474,7 +474,7 @@ function App() {
             <section className="wide settings-card deeplx-card">
               <div className="settings-copy">
                 <strong>DeepLX 翻译</strong>
-                <span>启用后 Discord 正文会翻译成中文文本；失败时只发送 Markdown 原文图片。</span>
+                <span>启用后 Discord 正文会翻译成中文并渲染为图片；失败时只发送 Markdown 原文图片。</span>
               </div>
               <label>
                 DeepLX HTTP 地址

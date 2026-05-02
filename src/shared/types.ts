@@ -116,6 +116,7 @@ export interface ProcessedImageAsset {
 export interface PreparedBridgePayload {
   message: NormalizedDiscordMessage;
   translatedText: string | null;
+  translatedImage: ProcessedImageAsset | null;
   markdownImage: ProcessedImageAsset | null;
   images: ProcessedImageAsset[];
 }

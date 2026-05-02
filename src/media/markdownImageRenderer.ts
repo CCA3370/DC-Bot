@@ -24,10 +24,10 @@ markdown.renderer.rules.image = (tokens, index) => {
 };
 
 export class MarkdownImageRenderer {
-  private readonly cacheDir: string;
+  private readonly cacheRoot: string;
 
   constructor(config: Pick<AppConfig, "storage">) {
-    this.cacheDir = resolve(config.storage.mediaCacheDir, "markdown");
+    this.cacheRoot = resolve(config.storage.mediaCacheDir);
   }
 
   async renderMessage(message: NormalizedDiscordMessage): Promise<ProcessedImageAsset | null> {
@@ -36,26 +36,45 @@ export class MarkdownImageRenderer {
     }
 
     const html = buildMarkdownDocument(message);
+    return this.writeRenderedImage("markdown", message.id, message.rawMarkdown, html);
+  }
+
+  async renderTranslation(message: NormalizedDiscordMessage, translatedText: string | null): Promise<ProcessedImageAsset | null> {
+    const text = translatedText?.trim() ?? "";
+    if (text.length === 0) {
+      return null;
+    }
+
+    const html = buildTranslationDocument({
+      authorName: message.authorName,
+      sourceName: message.sourceName,
+      createdAt: message.createdAt,
+      translatedText: text
+    });
+    return this.writeRenderedImage("translation", message.id, text, html);
+  }
+
+  private async writeRenderedImage(
+    kind: "markdown" | "translation",
+    messageId: string,
+    hashInput: string,
+    html: string
+  ): Promise<ProcessedImageAsset> {
     const buffer = await screenshotHtml(html);
     const metadata = await sharp(buffer).metadata();
     const width = metadata.width ?? 960;
     const height = metadata.height ?? 1;
-    const hash = createHash("sha256")
-      .update(message.id)
-      .update(message.rawMarkdown)
-      .update(buffer)
-      .digest("hex")
-      .slice(0, 24);
+    const hash = createHash("sha256").update(messageId).update(hashInput).update(buffer).digest("hex").slice(0, 24);
     const day = new Date().toISOString().slice(0, 10);
-    const directory = join(this.cacheDir, day);
+    const directory = join(this.cacheRoot, kind, day);
     mkdirSync(directory, { recursive: true });
 
-    const filename = `${hash}-markdown.png`;
+    const filename = `${hash}-${kind}.png`;
     const filePath = join(directory, filename);
     await writeFile(filePath, buffer);
 
     return {
-      attachmentId: `markdown-${message.id}`,
+      attachmentId: `${kind}-${messageId}`,
       filename,
       mimeType: "image/png",
       filePath,
@@ -360,7 +379,7 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
   </style>
 </head>
 <body>
-  <article class="card" data-markdown-card>
+  <article class="card" data-image-card>
     <header class="header">
       <div class="avatar">${escapeHtml(authorInitials)}</div>
       <div>
@@ -373,6 +392,175 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
       <div class="time">${escapeHtml(timestamp)}</div>
     </header>
     <main class="content">${renderedBody}</main>
+  </article>
+</body>
+</html>`;
+}
+
+export function buildTranslationDocument(
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt"> & { translatedText: string }
+) {
+  const timestamp = formatTimestamp(message.createdAt);
+  const authorInitials = getAuthorInitials(message.authorName);
+  const translatedText = escapeHtml(message.translatedText.trim());
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2522;
+      --muted: #617168;
+      --line: #c9d8d0;
+      --green: #1f6b53;
+      --green-dark: #123f34;
+      --green-soft: #e4f2ec;
+      --paper: #fbfefb;
+      --gold: #d99a28;
+      font-family: "Aptos", "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--ink);
+      background: #e6eee8;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 28px;
+      width: 960px;
+      background:
+        linear-gradient(90deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(31, 107, 83, 0.055) 1px, transparent 1px),
+        #e6eee8;
+      background-size: 28px 28px;
+    }
+    .card {
+      width: 904px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(251, 254, 251, 0.98), rgba(251, 254, 251, 0.98)),
+        repeating-linear-gradient(135deg, rgba(31, 107, 83, 0.045) 0 1px, transparent 1px 18px);
+    }
+    .card::before {
+      content: "";
+      display: block;
+      height: 7px;
+      background: linear-gradient(90deg, var(--green-dark), var(--green) 64%, var(--gold));
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 20px 26px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fbfefb, #edf7f1);
+    }
+    .avatar {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(31, 107, 83, 0.22);
+      border-radius: 8px;
+      background: var(--green-dark);
+      color: #fff9e8;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+    .title strong {
+      font-size: 22px;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+    .translation-pill,
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .translation-pill {
+      border: 1px solid rgba(31, 107, 83, 0.2);
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .source-pill {
+      border: 1px solid rgba(217, 154, 40, 0.28);
+      background: #fff2cf;
+      color: #744714;
+      max-width: 460px;
+    }
+    .time {
+      align-self: center;
+      padding-left: 18px;
+      border-left: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+    .content {
+      padding: 31px 36px 36px;
+    }
+    .translated-text {
+      position: relative;
+      margin: 0;
+      padding: 0 0 0 18px;
+      border-left: 5px solid var(--green);
+      color: #1e2723;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.78;
+      letter-spacing: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .translated-text::before {
+      content: "译";
+      position: absolute;
+      right: 0;
+      bottom: -8px;
+      color: rgba(31, 107, 83, 0.08);
+      font-size: 86px;
+      font-weight: 900;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <article class="card" data-image-card>
+    <header class="header">
+      <div class="avatar">${escapeHtml(authorInitials)}</div>
+      <div>
+        <div class="title">
+          <strong>${escapeHtml(message.authorName)}</strong>
+          <span class="translation-pill">中文译文</span>
+        </div>
+        <span class="source-pill">#${escapeHtml(message.sourceName)}</span>
+      </div>
+      <div class="time">${escapeHtml(timestamp)}</div>
+    </header>
+    <main class="content">
+      <p class="translated-text">${translatedText}</p>
+    </main>
   </article>
 </body>
 </html>`;
@@ -399,7 +587,7 @@ async function screenshotHtml(html: string) {
       void route.abort();
     });
     await page.setContent(html, { waitUntil: "domcontentloaded" });
-    return await page.locator("[data-markdown-card]").screenshot({
+    return await page.locator("[data-image-card]").screenshot({
       type: "png",
       animations: "disabled"
     });

@@ -6,11 +6,13 @@ import { buildForwardNodes } from "../src/napcat/napcatClient.js";
 import type { PreparedBridgePayload } from "../src/shared/types.js";
 
 describe("buildForwardNodes", () => {
-  it("sends translated text, markdown image, then attachment images without original text", async () => {
+  it("sends translated image, markdown image, then attachment images without text nodes", async () => {
     const directory = await mkdtemp(join(tmpdir(), "dc-bot-napcat-"));
+    const translation = join(directory, "translation.png");
     const markdown = join(directory, "markdown.png");
     const first = join(directory, "first.png");
     const second = join(directory, "second.png");
+    await writeFile(translation, Buffer.from("translation"));
     await writeFile(markdown, Buffer.from("markdown"));
     await writeFile(first, Buffer.from("first"));
     await writeFile(second, Buffer.from("second"));
@@ -33,6 +35,15 @@ describe("buildForwardNodes", () => {
         images: []
       },
       translatedText: "你好",
+      translatedImage: {
+        attachmentId: "translation-m1",
+        filename: "translation.png",
+        mimeType: "image/png",
+        filePath: translation,
+        size: 11,
+        width: 1,
+        height: 1
+      },
       markdownImage: {
         attachmentId: "markdown-m1",
         filename: "markdown.png",
@@ -67,12 +78,15 @@ describe("buildForwardNodes", () => {
     const nodes = await buildForwardNodes(payload);
 
     expect(nodes).toHaveLength(3);
-    expect(nodes[0]?.data.content).toEqual([{ type: "text", data: { text: "你好" } }]);
+    expect(nodes[0]?.data.content).toHaveLength(1);
+    expect(nodes[0]?.data.content[0]?.type).toBe("image");
     expect(nodes[1]?.data.content).toHaveLength(1);
     expect(nodes[1]?.data.content[0]?.type).toBe("image");
     expect(nodes[2]?.data.content).toHaveLength(2);
     expect(nodes[2]?.data.content.every((segment) => segment.type === "image")).toBe(true);
     expect(JSON.stringify(nodes)).not.toContain("hello");
+    expect(JSON.stringify(nodes)).not.toContain("你好");
+    expect(nodes.flatMap((node) => node.data.content).some((segment) => segment.type === "text")).toBe(false);
   });
 
   it("does not create a text node when translation is unavailable", async () => {
@@ -98,6 +112,7 @@ describe("buildForwardNodes", () => {
         images: []
       },
       translatedText: null,
+      translatedImage: null,
       markdownImage: {
         attachmentId: "markdown-m1",
         filename: "markdown.png",

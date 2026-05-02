@@ -118,15 +118,14 @@ function parseGroupRow(row: unknown): NapCatGroup {
 
 export async function buildForwardNodes(payload: PreparedBridgePayload): Promise<OneBotForwardNode[]> {
   const nodes: OneBotForwardNode[] = [];
-  const translatedText = payload.translatedText?.trim() ?? "";
 
-  if (translatedText.length > 0) {
+  if (payload.translatedImage) {
     nodes.push({
       type: "node",
       data: {
         name: payload.message.authorName,
         uin: "10000",
-        content: [{ type: "text", data: { text: translatedText } }]
+        content: [await buildImageSegment(payload.translatedImage)]
       }
     });
   }

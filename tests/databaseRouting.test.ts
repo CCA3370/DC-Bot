@@ -56,6 +56,7 @@ describe("AppDatabase routing and delivery jobs", () => {
         images: []
       },
       translatedText: null,
+      translatedImage: null,
       markdownImage: null,
       images: []
     };
