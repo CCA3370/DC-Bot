@@ -75,6 +75,22 @@ export class DeliveryService {
     }
   }
 
+  async processJobById(id: number) {
+    const job = this.options.database.getDeliveryJob(id);
+    if (!job) {
+      throw new Error(`Delivery job ${id} was not found`);
+    }
+    await this.processJob(job);
+  }
+
+  async testNapCatConnection() {
+    await this.napcat.testConnection();
+  }
+
+  async sendTestMessage(groupId: string, text: string) {
+    await this.napcat.sendGroupText(groupId, text);
+  }
+
   async processJob(job: DeliveryJob) {
     try {
       await this.napcat.sendPreparedMessage(job.qqGroupId, job.payload);

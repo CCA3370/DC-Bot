@@ -3,23 +3,16 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type {
   DeliveryJob,
+  DeliveryStats,
   DeliveryJobStatus,
+  ChannelRouteView,
   DiscordSource,
+  EventLogEntry,
+  LogLevel,
   PreparedBridgePayload,
   QqGroup,
   RouteTarget
 } from "./types.js";
-
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-export interface EventLogEntry {
-  id: number;
-  level: LogLevel;
-  source: string;
-  message: string;
-  metadata: Record<string, unknown> | null;
-  createdAt: string;
-}
 
 interface DiscordChannelRow {
   id: string;
@@ -43,6 +36,22 @@ interface RouteTargetRow {
   qq_group_id: number;
   group_id: string;
   group_name: string;
+}
+
+interface ChannelRouteViewRow {
+  id: number;
+  source_id: string;
+  source_name: string | null;
+  source_type: DiscordSource["type"] | null;
+  qq_group_id: number;
+  group_id: string;
+  group_name: string;
+  is_active: number;
+}
+
+interface DeliveryStatsRow {
+  status: DeliveryJobStatus;
+  count: number;
 }
 
 interface DeliveryJobRow {
@@ -207,6 +216,16 @@ export class AppDatabase {
     }));
   }
 
+  setQqGroupActive(id: number, isActive: boolean) {
+    this.db
+      .prepare(
+        `UPDATE qq_groups
+         SET is_active = ?, updated_at = ?
+         WHERE id = ?`
+      )
+      .run(isActive ? 1 : 0, new Date().toISOString(), id);
+  }
+
   upsertChannelRoute(sourceId: string, qqGroupId: number, isActive = true) {
     const now = new Date().toISOString();
     this.db
@@ -218,6 +237,51 @@ export class AppDatabase {
           updated_at = excluded.updated_at`
       )
       .run(sourceId, qqGroupId, isActive ? 1 : 0, now, now);
+  }
+
+  listChannelRoutes(): ChannelRouteView[] {
+    const rows = this.db
+      .prepare(
+        `SELECT
+          channel_routes.id AS id,
+          channel_routes.source_id AS source_id,
+          discord_channels.name AS source_name,
+          discord_channels.type AS source_type,
+          qq_groups.id AS qq_group_id,
+          qq_groups.group_id AS group_id,
+          qq_groups.name AS group_name,
+          channel_routes.is_active AS is_active
+         FROM channel_routes
+         INNER JOIN qq_groups ON qq_groups.id = channel_routes.qq_group_id
+         LEFT JOIN discord_channels ON discord_channels.id = channel_routes.source_id
+         ORDER BY discord_channels.name ASC, qq_groups.name ASC`
+      )
+      .all() as unknown as ChannelRouteViewRow[];
+
+    return rows.map((row) => ({
+      id: row.id,
+      sourceId: row.source_id,
+      sourceName: row.source_name,
+      sourceType: row.source_type,
+      qqGroupId: row.qq_group_id,
+      groupId: row.group_id,
+      groupName: row.group_name,
+      isActive: row.is_active === 1
+    }));
+  }
+
+  setChannelRouteActive(id: number, isActive: boolean) {
+    this.db
+      .prepare(
+        `UPDATE channel_routes
+         SET is_active = ?, updated_at = ?
+         WHERE id = ?`
+      )
+      .run(isActive ? 1 : 0, new Date().toISOString(), id);
+  }
+
+  deleteChannelRoute(id: number) {
+    this.db.prepare(`DELETE FROM channel_routes WHERE id = ?`).run(id);
   }
 
   listActiveRoutesForSource(sourceId: string): RouteTarget[] {
@@ -294,6 +358,22 @@ export class AppDatabase {
     return row ? parseDeliveryJobRow(row) : null;
   }
 
+  getDeliveryStats(): DeliveryStats {
+    const rows = this.db
+      .prepare(
+        `SELECT status, COUNT(*) AS count
+         FROM delivery_jobs
+         GROUP BY status`
+      )
+      .all() as unknown as DeliveryStatsRow[];
+
+    return {
+      pending: rows.find((row) => row.status === "pending")?.count ?? 0,
+      failed: rows.find((row) => row.status === "failed")?.count ?? 0,
+      sent: rows.find((row) => row.status === "sent")?.count ?? 0
+    };
+  }
+
   markDeliveryJobSent(id: number) {
     const now = new Date().toISOString();
     this.db.exec("BEGIN");
@@ -343,6 +423,41 @@ export class AppDatabase {
          VALUES (?, ?, ?, ?)`
       )
       .run(jobId, status, errorMessage, createdAt);
+  }
+
+  createAdminSession(id: string, expiresAt: string) {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT INTO admin_sessions (id, expires_at, created_at)
+         VALUES (?, ?, ?)`
+      )
+      .run(id, expiresAt, now);
+  }
+
+  getAdminSession(id: string) {
+    const row = this.db
+      .prepare(
+        `SELECT id, expires_at
+         FROM admin_sessions
+         WHERE id = ? AND expires_at > ?`
+      )
+      .get(id, new Date().toISOString()) as unknown as { id: string; expires_at: string } | undefined;
+
+    return row ? { id: row.id, expiresAt: row.expires_at } : null;
+  }
+
+  deleteAdminSession(id: string) {
+    this.db.prepare(`DELETE FROM admin_sessions WHERE id = ?`).run(id);
+  }
+
+  cleanupExpiredAdminSessions() {
+    this.db.prepare(`DELETE FROM admin_sessions WHERE expires_at <= ?`).run(new Date().toISOString());
+  }
+
+  countTable(tableName: "discord_channels" | "qq_groups" | "channel_routes" | "delivery_jobs") {
+    const row = this.db.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get() as unknown as { count: number };
+    return row.count;
   }
 
   private migrate() {

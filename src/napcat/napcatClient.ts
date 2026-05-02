@@ -47,6 +47,13 @@ export class NapCatClient {
     await this.callApi("get_status", {});
   }
 
+  async sendGroupText(groupId: string, text: string) {
+    await this.callApi("send_group_msg", {
+      group_id: groupId,
+      message: [{ type: "text", data: { text } }]
+    });
+  }
+
   private async callApi(action: string, payload: Record<string, unknown>) {
     const response = await fetch(`${this.config.endpoint}/${action}`, {
       method: "POST",

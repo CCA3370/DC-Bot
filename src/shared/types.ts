@@ -43,12 +43,40 @@ export interface QqGroup {
   isActive: boolean;
 }
 
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface EventLogEntry {
+  id: number;
+  level: LogLevel;
+  source: string;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface RouteTarget {
   routeId: number;
   sourceId: string;
   qqGroupId: number;
   groupId: string;
   groupName: string;
+}
+
+export interface ChannelRouteView {
+  id: number;
+  sourceId: string;
+  sourceName: string | null;
+  sourceType: DiscordSourceType | null;
+  qqGroupId: number;
+  groupId: string;
+  groupName: string;
+  isActive: boolean;
+}
+
+export interface DeliveryStats {
+  pending: number;
+  failed: number;
+  sent: number;
 }
 
 export type DeliveryJobStatus = "pending" | "sent" | "failed";
