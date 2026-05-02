@@ -17,7 +17,7 @@ const markdown = new MarkdownIt({
 // Discord code blocks are fenced; this avoids treating pasted text with four leading spaces as code.
 markdown.block.ruler.disable(["code"]);
 
-const renderViewportWidth = 720;
+const renderViewportWidth = 600;
 const renderViewportHeight = 720;
 const renderBodyPadding = 20;
 const renderCardWidth = renderViewportWidth - renderBodyPadding * 2;
@@ -39,14 +39,14 @@ const sharedMarkdownContentStyles = `
     }
     h1 {
       padding-left: 14px;
-      font-size: 32px;
+      font-size: 33px;
     }
     h2 {
       padding-left: 12px;
-      font-size: 26px;
+      font-size: 27px;
     }
     h3 {
-      font-size: 21px;
+      font-size: 22px;
       color: var(--teal);
     }
     h1::before,
@@ -122,7 +122,7 @@ const sharedMarkdownContentStyles = `
       padding: 0;
       background: transparent;
       color: inherit;
-      font-size: 15px;
+      font-size: 16px;
     }
     blockquote {
       margin-left: 0;
@@ -360,7 +360,6 @@ function buildRenderedMessageDocument(
       background-size: 28px 28px;
     }
     .card {
-      isolation: isolate;
       position: relative;
       width: ${renderCardWidth}px;
       min-width: ${renderCardWidth}px;
@@ -369,11 +368,11 @@ function buildRenderedMessageDocument(
       border: 0;
       border-radius: 0;
       background:
-        linear-gradient(90deg, rgba(30, 79, 95, 0.05) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(30, 79, 95, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 79, 95, 0.09) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(30, 79, 95, 0.09) 1px, transparent 1px),
         linear-gradient(180deg, rgba(251, 253, 255, 0.985), rgba(247, 250, 252, 0.985)),
-        repeating-linear-gradient(135deg, rgba(30, 79, 95, 0.025) 0 1px, transparent 1px 18px);
-      background-size: 34px 34px, 34px 34px, auto, auto;
+        linear-gradient(135deg, rgba(37, 99, 235, 0.035), transparent 38%, rgba(249, 115, 22, 0.04));
+      background-size: 32px 32px, 32px 32px, auto, auto;
     }
     .card::before {
       content: "";
@@ -385,16 +384,17 @@ function buildRenderedMessageDocument(
       background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
     }
     .card::after {
-      content: "✈";
+      content: "✈  ✈  ✈";
       position: absolute;
-      right: -8px;
-      bottom: 28px;
+      inset: 118px -24px 18px 22px;
       z-index: 0;
-      color: rgba(30, 79, 95, 0.065);
-      font-size: 132px;
+      color: rgba(30, 79, 95, 0.09);
+      font-size: 74px;
       font-weight: 900;
-      line-height: 1;
-      transform: rotate(-13deg);
+      line-height: 1.95;
+      letter-spacing: 112px;
+      white-space: pre-wrap;
+      transform: rotate(-12deg);
     }
     .header {
       position: relative;
@@ -412,20 +412,23 @@ function buildRenderedMessageDocument(
     .avatar {
       width: 48px;
       height: 48px;
-      border: 1px solid rgba(23, 69, 62, 0.24);
-      border-radius: 8px;
-      background: var(--teal);
-      color: #f8fcff;
       line-height: 1;
     }
     .avatar-initials {
       display: grid;
       place-items: center;
+      border: 1px solid rgba(23, 69, 62, 0.24);
+      border-radius: 8px;
+      background: var(--teal);
+      color: #f8fcff;
       font-size: 18px;
       font-weight: 900;
     }
     .avatar-image {
       display: block;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
       object-fit: cover;
     }
     .header strong,
@@ -482,7 +485,7 @@ function buildRenderedMessageDocument(
       width: 100%;
       max-width: ${renderCardWidth}px;
       padding: 24px 26px 30px;
-      font-size: 18px;
+      font-size: 19px;
       line-height: 1.64;
       overflow-wrap: anywhere;
     }

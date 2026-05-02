@@ -39,17 +39,20 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("&lt;@123&gt;");
     expect(html).toContain("[image: remote]");
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
-    expect(html).toContain("width: 720px;");
-    expect(html).toContain("width: 680px;");
+    expect(html).toContain("width: 600px;");
+    expect(html).toContain("width: 560px;");
+    expect(html).toContain("font-size: 19px;");
     expect(html).toContain("border: 0;");
     expect(html).toContain("border-radius: 0;");
     expect(html).toContain("width: 100%;");
     expect(html).toContain("--paper: #fbfdff;");
     expect(html).toContain("background: #edf3f6;");
     expect(html).toContain("linear-gradient(180deg, rgba(251, 253, 255, 0.985), rgba(247, 250, 252, 0.985))");
-    expect(html).toContain("background-size: 34px 34px, 34px 34px, auto, auto;");
-    expect(html).toContain('content: "✈";');
-    expect(html).toContain("color: rgba(30, 79, 95, 0.065);");
+    expect(html).toContain("rgba(30, 79, 95, 0.09)");
+    expect(html).toContain("background-size: 32px 32px, 32px 32px, auto, auto;");
+    expect(html).toContain('content: "✈  ✈  ✈";');
+    expect(html).toContain("color: rgba(30, 79, 95, 0.09);");
+    expect(html).toContain("letter-spacing: 112px;");
     expect(html).toContain("align-items: center;");
     expect(html).toContain("padding-top: 2px;");
     expect(html).not.toContain("#ede8dc");
@@ -76,6 +79,8 @@ describe("buildMarkdownDocument", () => {
 
     expect(html).toContain('<img class="avatar avatar-image"');
     expect(html).toContain('src="data:image/png;base64,YXZhdGFy"');
+    expect(html).toContain("background: transparent;");
+    expect(html).toContain("border: 0;");
     expect(html).not.toContain(">A</div>");
   });
 
@@ -128,8 +133,8 @@ describe("buildMarkdownDocument", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).toContain("data-image-card");
     expect(html).toContain("linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316)");
-    expect(html).toContain("width: 720px;");
-    expect(html).toContain("width: 680px;");
+    expect(html).toContain("width: 600px;");
+    expect(html).toContain("width: 560px;");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 
@@ -148,12 +153,12 @@ describe("buildMarkdownDocument", () => {
     });
 
     expect(extractStyle(markdownHtml)).toBe(extractStyle(translationHtml));
-    expect(translationHtml).toContain("width: 720px;");
-    expect(translationHtml).toContain("min-width: 720px;");
-    expect(translationHtml).toContain("max-width: 720px;");
-    expect(translationHtml).toContain("width: 680px;");
-    expect(translationHtml).toContain("min-width: 680px;");
-    expect(translationHtml).toContain("max-width: 680px;");
+    expect(translationHtml).toContain("width: 600px;");
+    expect(translationHtml).toContain("min-width: 600px;");
+    expect(translationHtml).toContain("max-width: 600px;");
+    expect(translationHtml).toContain("width: 560px;");
+    expect(translationHtml).toContain("min-width: 560px;");
+    expect(translationHtml).toContain("max-width: 560px;");
   });
 
   it("repairs DeepLX markdown artifacts before rendering translated images", () => {
