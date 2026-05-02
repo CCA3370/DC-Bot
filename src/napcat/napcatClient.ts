@@ -24,7 +24,15 @@ interface OneBotResponse {
 }
 
 export class NapCatClient {
-  constructor(private readonly config: AppConfig["napcat"]) {}
+  constructor(private config: AppConfig["napcat"]) {}
+
+  getConfig() {
+    return { ...this.config };
+  }
+
+  updateConfig(config: AppConfig["napcat"]) {
+    this.config = { ...config };
+  }
 
   async sendPreparedMessage(groupId: string, payload: PreparedBridgePayload) {
     const messages = await buildForwardNodes(payload);

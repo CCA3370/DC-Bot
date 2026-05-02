@@ -51,6 +51,12 @@ select {
   padding: 0 11px;
 }
 
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
 .login {
   min-height: 100vh;
   display: grid;
@@ -255,6 +261,7 @@ nav button.active {
 }
 
 .action-row,
+.settings-card,
 .settings-row,
 .inline-form {
   display: grid;
@@ -268,15 +275,41 @@ nav button.active {
   grid-template-columns: 1fr minmax(260px, 360px) auto;
 }
 
+.settings-card {
+  background: #fbfaf5;
+  border: 1px solid #cfc5b2;
+  border-radius: 8px;
+  grid-template-columns: 1fr minmax(230px, 310px) minmax(200px, 280px) auto auto;
+}
+
+.settings-card label {
+  display: grid;
+  gap: 6px;
+  color: #706650;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .settings-row strong,
-.settings-row span {
+.settings-row span,
+.settings-copy strong,
+.settings-copy span {
   display: block;
 }
 
-.settings-row span {
+.settings-row span,
+.settings-copy span {
   color: #706650;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.checkbox-field {
+  align-self: end;
+  min-height: 38px;
+  grid-template-columns: 16px max-content;
+  align-items: center;
+  color: #33312b;
 }
 
 .table-panel {
@@ -426,6 +459,7 @@ nav button.active {
   }
 
   .action-row,
+  .settings-card,
   .settings-row,
   .inline-form {
     grid-template-columns: 1fr;

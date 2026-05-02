@@ -126,11 +126,12 @@ http://<服务器 IP>:8787
 
 1. 登录。
 2. 设置监听 Discord 服务器 ID。
-3. 同步 Discord 频道和线程。
-4. 新增 QQ 群。
-5. 配置频道到 QQ 群的路由。
-6. 测试 NapCat 连接。
-7. 发送测试消息。
+3. 配置 NapCat OneBot HTTP 地址和 access token。
+4. 同步 Discord 频道和线程。
+5. 新增 QQ 群。
+6. 配置频道到 QQ 群的路由。
+7. 测试 NapCat 连接。
+8. 发送测试消息。
 
 ## NapCat 连通性检查
 

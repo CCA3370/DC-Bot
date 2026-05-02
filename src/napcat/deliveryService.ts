@@ -21,6 +21,14 @@ export class DeliveryService {
     this.napcat = new NapCatClient(options.config.napcat);
   }
 
+  getNapCatConfig() {
+    return this.napcat.getConfig();
+  }
+
+  updateNapCatConfig(config: AppConfig["napcat"]) {
+    this.napcat.updateConfig(config);
+  }
+
   startRetryWorker() {
     this.retryTimer = setInterval(() => {
       void this.processDueJobs().catch((error) => this.logError("Delivery retry worker failed", error));

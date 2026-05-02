@@ -10,8 +10,12 @@ const config = loadConfig(process.env);
 const logger = createLogger("bootstrap");
 const database = new AppDatabase(config.storage.sqlitePath);
 const discordLogger = createLogger("discord");
+let activeNapCatConfig = {
+  endpoint: database.getSetting("napcat.endpoint") ?? config.napcat.endpoint,
+  accessToken: database.getSetting("napcat.access_token") ?? config.napcat.accessToken
+};
 const delivery = new DeliveryService({
-  config,
+  config: { ...config, napcat: activeNapCatConfig },
   database,
   logger: createLogger("delivery")
 });
@@ -29,6 +33,20 @@ const admin = new AdminServer({
   delivery,
   logger: createLogger("admin"),
   getDiscordGuildId: () => activeDiscordGuildId,
+  getNapCatConfig: () => activeNapCatConfig,
+  setNapCatConfig: async (napcatConfig) => {
+    activeNapCatConfig = {
+      endpoint: napcatConfig.endpoint,
+      accessToken: napcatConfig.accessToken
+    };
+    database.setSetting("napcat.endpoint", activeNapCatConfig.endpoint);
+    database.setSetting("napcat.access_token", activeNapCatConfig.accessToken);
+    delivery.updateNapCatConfig(activeNapCatConfig);
+    database.recordEventLog("info", "admin", "Updated NapCat settings", {
+      endpoint: activeNapCatConfig.endpoint,
+      accessTokenConfigured: activeNapCatConfig.accessToken.length > 0
+    });
+  },
   setDiscordGuildId: async (guildId) => {
     activeDiscordGuildId = guildId.trim();
     database.setSetting("discord.guild_id", activeDiscordGuildId);

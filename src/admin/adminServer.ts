@@ -20,7 +20,9 @@ export interface AdminServerOptions {
   delivery: DeliveryService;
   logger: Logger;
   getDiscordGuildId: () => string;
+  getNapCatConfig: () => AppConfig["napcat"];
   setDiscordGuildId: (guildId: string) => Promise<void>;
+  setNapCatConfig: (config: AppConfig["napcat"]) => Promise<void>;
   syncDiscordChannels: () => Promise<void>;
 }
 
@@ -111,14 +113,15 @@ export class AdminServer {
 
     this.app.get("/api/status", async () => {
       const deliveryStats = this.options.database.getDeliveryStats();
+      const napcatConfig = this.options.getNapCatConfig();
       return {
         discord: {
           guildId: this.options.getDiscordGuildId(),
           tokenConfigured: this.options.config.discord.token.length > 0
         },
         napcat: {
-          endpoint: this.options.config.napcat.endpoint,
-          accessTokenConfigured: this.options.config.napcat.accessToken.length > 0
+          endpoint: napcatConfig.endpoint,
+          accessTokenConfigured: napcatConfig.accessToken.length > 0
         },
         counts: {
           channels: this.options.database.countTable("discord_channels"),
@@ -137,6 +140,22 @@ export class AdminServer {
         discord: {
           guildId: this.options.getDiscordGuildId(),
           tokenConfigured: this.options.config.discord.token.length > 0
+        }
+      };
+    });
+
+    this.app.patch("/api/settings/napcat", async (request) => {
+      const body = napcatSettingsSchema.parse(request.body);
+      const current = this.options.getNapCatConfig();
+      const nextConfig = {
+        endpoint: body.endpoint.replace(/\/+$/, ""),
+        accessToken: body.clearAccessToken ? "" : body.accessToken.trim() || current.accessToken
+      };
+      await this.options.setNapCatConfig(nextConfig);
+      return {
+        napcat: {
+          endpoint: nextConfig.endpoint,
+          accessTokenConfigured: nextConfig.accessToken.length > 0
         }
       };
     });
@@ -297,6 +316,12 @@ const testSendSchema = z.object({
 
 const discordSettingsSchema = z.object({
   guildId: z.string().trim().regex(/^\d{15,25}$/, "Discord 服务器 ID 必须是 15-25 位数字")
+});
+
+const napcatSettingsSchema = z.object({
+  endpoint: z.string().trim().url("NapCat 地址必须是有效 URL"),
+  accessToken: z.string().optional().default(""),
+  clearAccessToken: z.boolean().optional().default(false)
 });
 
 function safeEqual(left: string, right: string) {

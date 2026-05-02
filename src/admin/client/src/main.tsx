@@ -55,6 +55,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [guildForm, setGuildForm] = useState("");
+  const [napcatForm, setNapcatForm] = useState({ endpoint: "", accessToken: "", clearAccessToken: false });
   const [groupForm, setGroupForm] = useState({ groupId: "", name: "" });
   const [routeForm, setRouteForm] = useState({ sourceId: "", qqGroupId: "" });
   const [testForm, setTestForm] = useState({ groupId: "", text: "DC-Bot 测试消息" });
@@ -86,6 +87,7 @@ function App() {
       ]);
       setStatus(nextStatus);
       setGuildForm(nextStatus.discord.guildId);
+      setNapcatForm({ endpoint: nextStatus.napcat.endpoint, accessToken: "", clearAccessToken: false });
       setChannels(channelResponse.channels);
       setGroups(groupResponse.groups);
       setRoutes(routeResponse.routes);
@@ -138,6 +140,18 @@ function App() {
       setStatus((current) => (current ? { ...current, discord: response.discord } : current));
       await reloadAll();
     }, "监听服务器已更新，Discord 连接已重启");
+  }
+
+  async function saveNapCatSettings() {
+    await mutate(async () => {
+      const response = await api<{ napcat: StatusResponse["napcat"] }>("/api/settings/napcat", {
+        method: "PATCH",
+        body: JSON.stringify(napcatForm)
+      });
+      setStatus((current) => (current ? { ...current, napcat: response.napcat } : current));
+      setNapcatForm({ endpoint: response.napcat.endpoint, accessToken: "", clearAccessToken: false });
+      await reloadAll();
+    }, "NapCat 配置已保存");
   }
 
   async function saveGroup() {
@@ -308,6 +322,7 @@ function App() {
             <Metric label="Discord Token" value={status.discord.tokenConfigured ? "已配置" : "未配置"} />
             <Metric label="监听服务器" value={status.discord.guildId || "未设置"} tone={status.discord.guildId ? "ok" : "warn"} />
             <Metric label="NapCat" value={status.napcat.endpoint} />
+            <Metric label="NapCat Token" value={status.napcat.accessTokenConfigured ? "已配置" : "未配置"} tone={status.napcat.accessTokenConfigured ? "ok" : "warn"} />
             <Metric label="来源" value={String(status.counts.channels)} />
             <Metric label="QQ群" value={String(status.counts.groups)} />
             <Metric label="路由" value={String(status.counts.routes)} />
@@ -328,6 +343,43 @@ function App() {
               <button onClick={() => void saveDiscordSettings()} disabled={busy || !guildForm}>
                 <RefreshCw size={17} />
                 保存并重连
+              </button>
+            </section>
+            <section className="wide settings-card">
+              <div className="settings-copy">
+                <strong>NapCat 连接</strong>
+                <span>保存后立即用于连接测试、测试发送和后续投递。</span>
+              </div>
+              <label>
+                OneBot HTTP 地址
+                <input
+                  value={napcatForm.endpoint}
+                  onChange={(event) => setNapcatForm({ ...napcatForm, endpoint: event.target.value })}
+                  placeholder="http://127.0.0.1:3000"
+                />
+              </label>
+              <label>
+                Access Token
+                <input
+                  value={napcatForm.accessToken}
+                  onChange={(event) => setNapcatForm({ ...napcatForm, accessToken: event.target.value })}
+                  type="password"
+                  autoComplete="new-password"
+                  disabled={napcatForm.clearAccessToken}
+                  placeholder={status.napcat.accessTokenConfigured ? "已配置，留空保留当前 token" : "没有 token 可留空"}
+                />
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={napcatForm.clearAccessToken}
+                  onChange={(event) => setNapcatForm({ ...napcatForm, clearAccessToken: event.target.checked, accessToken: "" })}
+                  type="checkbox"
+                />
+                清除已保存 token
+              </label>
+              <button onClick={() => void saveNapCatSettings()} disabled={busy || !napcatForm.endpoint}>
+                <RefreshCw size={17} />
+                保存 NapCat
               </button>
             </section>
             <section className="wide action-row">
