@@ -85,17 +85,22 @@ export async function addWatermark(input: Buffer, text: string) {
   const metadata = await base.metadata();
   const width = metadata.width ?? 1024;
   const height = metadata.height ?? 1024;
-  const fontSize = Math.max(18, Math.round(width * 0.035));
-  const padding = Math.max(12, Math.round(fontSize * 0.7));
-  const watermarkWidth = Math.min(width, Math.max(220, Math.round(text.length * fontSize * 0.75 + padding * 2)));
-  const watermarkHeight = Math.round(fontSize + padding * 1.5);
+  const fontSize = Math.max(12, Math.round(width * 0.022));
+  const paddingX = Math.max(5, Math.round(fontSize * 0.35));
+  const paddingY = Math.max(4, Math.round(fontSize * 0.25));
+  const strokeWidth = Math.max(1, Math.round(fontSize * 0.08));
+  const watermarkWidth = Math.min(width, estimateTextWidth(text, fontSize) + paddingX * 2 + strokeWidth * 2);
+  const watermarkHeight = Math.round(fontSize * 1.35 + paddingY * 2 + strokeWidth * 2);
   const svg = `
     <svg width="${watermarkWidth}" height="${watermarkHeight}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${watermarkWidth}" height="${watermarkHeight}" rx="10" fill="rgba(0,0,0,0.32)" />
-      <text x="${padding}" y="${Math.round(watermarkHeight / 2 + fontSize / 3)}"
+      <text x="${paddingX + strokeWidth}" y="${paddingY + strokeWidth + fontSize}"
         font-family="Segoe UI, Microsoft YaHei, sans-serif"
         font-size="${fontSize}"
-        font-weight="700"
+        font-weight="600"
+        stroke="rgba(0,0,0,0.45)"
+        stroke-width="${strokeWidth}"
+        stroke-linejoin="round"
+        paint-order="stroke fill"
         fill="rgba(255,255,255,0.72)">${escapeXml(text)}</text>
     </svg>`;
 
@@ -105,6 +110,22 @@ export async function addWatermark(input: Buffer, text: string) {
     .toBuffer();
 
   return { buffer, width, height };
+}
+
+function estimateTextWidth(value: string, fontSize: number) {
+  let units = 0;
+  for (const char of Array.from(value)) {
+    const codePoint = char.codePointAt(0) ?? 0;
+    if ((codePoint >= 0x2e80 && codePoint <= 0x9fff) || (codePoint >= 0xff00 && codePoint <= 0xffef)) {
+      units += 1;
+    } else if (codePoint > 0xffff) {
+      units += 1.1;
+    } else {
+      units += 0.58;
+    }
+  }
+
+  return Math.ceil(units * fontSize);
 }
 
 function escapeXml(value: string) {
