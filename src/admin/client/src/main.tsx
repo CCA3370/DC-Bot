@@ -15,6 +15,7 @@ import {
   Trash2
 } from "lucide-react";
 import type { ChannelRouteView, DeliveryJob, DiscordSource, EventLogEntry, QqGroup } from "../../../shared/types";
+import { api } from "./apiClient";
 import "./styles.css";
 
 type Panel = "overview" | "sources" | "routes" | "queue" | "logs";
@@ -540,23 +541,6 @@ function panelTitle(panel: Panel) {
     logs: "事件日志"
   };
   return titles[panel];
-}
-
-async function api<T = { ok: boolean }>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    ...init
-  });
-
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
-  if (!response.ok) {
-    throw new Error(body.error ?? `HTTP ${response.status}`);
-  }
-  return body as T;
 }
 
 createRoot(document.getElementById("root")!).render(
