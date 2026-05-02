@@ -27,11 +27,16 @@ RUN pnpm install --frozen-lockfile --prod
 FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+ENV XDG_CACHE_HOME=/app/.cache
 WORKDIR /app
 
-RUN groupadd --system --gid 10001 dc-bot \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends chromium fonts-noto-cjk ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 10001 dc-bot \
   && useradd --system --uid 10001 --gid dc-bot --home-dir /app --shell /usr/sbin/nologin dc-bot \
-  && mkdir -p /app/data /app/media-cache \
+  && mkdir -p /app/data /app/media-cache /app/.cache \
   && chown -R dc-bot:dc-bot /app
 
 COPY --from=production-dependencies --chown=dc-bot:dc-bot /app/node_modules ./node_modules

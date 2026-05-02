@@ -1,6 +1,6 @@
 # DC-Bot
 
-Discord 到 QQ/NapCat 桥接机器人。当前实现使用 Node.js 22+、TypeScript、discord.js v14、Fastify、React + Vite、SQLite、sharp 和 NapCat OneBot HTTP API。
+Discord 到 QQ/NapCat 桥接机器人。当前实现使用 Node.js 22+、TypeScript、discord.js v14、Fastify、React + Vite、SQLite、sharp、markdown-it、Playwright/Chromium 和 NapCat OneBot HTTP API。
 
 ## 功能范围
 
@@ -54,6 +54,7 @@ pnpm dev:admin
 - `ADMIN_SESSION_SECRET`：后台签名 Cookie secret。
 - `SQLITE_PATH`：SQLite 数据库路径，默认 `./data/dc-bot.sqlite`。
 - `MEDIA_CACHE_DIR`：水印图片缓存目录，默认 `./media-cache`。
+- `CHROMIUM_EXECUTABLE_PATH`：可选 Chromium/Chrome 路径；Docker 镜像内默认 `/usr/bin/chromium`，本地未自动发现浏览器时需要设置。
 
 `data/` 和 `media-cache/` 已加入 `.gitignore`。
 

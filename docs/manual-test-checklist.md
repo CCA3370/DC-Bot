@@ -4,6 +4,8 @@
 
 - `.env` 中已设置真实 `DISCORD_TOKEN`、`ADMIN_PASSWORD`、`ADMIN_SESSION_SECRET`。
 - NapCat OneBot HTTP 服务可访问，`NAPCAT_ENDPOINT` 指向正确地址。
+- 本机可用 Chromium/Chrome；如不能自动发现，设置 `CHROMIUM_EXECUTABLE_PATH`。
+- 如需中文译文文本，DeepLX 服务可访问，`DEEPLX_ENDPOINT` 指向正确地址。
 - Discord Bot 已加入准备监听的 guild，并启用 `Guilds`、`GuildMessages`、`MessageContent` intent。
 - 运行 `pnpm lint`、`pnpm test`、`pnpm build` 均通过。
 
@@ -13,6 +15,7 @@
 - 使用 `ADMIN_PASSWORD` 登录成功，退出后 API 返回 401。
 - 在“运行总览”设置监听 Discord 服务器 ID，保存后服务日志显示 Discord 连接重启。
 - 修改监听 Discord 服务器 ID 后重新同步来源，列表切换到新服务器的频道和线程。
+- 在“运行总览”保存 DeepLX 地址、token 和超时时间，刷新后配置仍保留。
 - 点击“来源”里的同步，能看到普通文本频道和活动线程。
 - 新增 QQ 群后刷新仍存在，停用后不会作为有效目标。
 - 新增频道到 QQ 群路由后，路由列表显示来源、类型、群名和群号。
@@ -20,11 +23,13 @@
 
 ## Discord 到 QQ 投递
 
-- 在已映射的普通 Discord 文本频道发送纯文本消息，QQ 收到合并转发文本节点和提醒消息。
+- 在已映射的普通 Discord 文本频道发送纯文本消息，QQ 收到中文译文文本节点、Markdown 原文图片节点和提醒消息。
 - 在已映射的线程中发送消息，QQ 提醒消息里的来源为线程名。
 - 发送单图消息，QQ 合并转发包含一个图片节点，图片右下角有来源水印。
 - 发送多图消息，QQ 合并转发中所有图片集中在同一个图片节点。
-- 发送图文混合消息，QQ 合并转发中文本节点和图片节点分离。
+- 发送含标题、列表、代码块、链接、引用和表格的消息，QQ 的 Markdown 原文图片排版正确，中文译文文本不包含 Markdown 标记。
+- 发送图文混合消息，QQ 合并转发顺序为中文译文文本、Markdown 原文图片、Discord 附件图片。
+- 发送纯图片消息，QQ 只收到附件图片节点和提醒消息，不生成空的 Markdown 原文图片。
 - 发送 embed、贴纸、非图片附件或空消息，不产生 QQ 投递。
 - 在未映射频道发送消息，QQ 不收到消息，后台日志出现忽略记录。
 
@@ -33,10 +38,12 @@
 - 临时关闭 NapCat 后发送已映射消息，后台“发送队列”出现失败任务。
 - 恢复 NapCat 后等待自动重试，任务状态变为 sent。
 - 对失败任务点击“重发”，QQ 收到补发内容，任务状态变为 sent。
+- 临时填错 DeepLX 地址后发送已映射文字消息，QQ 仍收到 Markdown 原文图片，不收到原文文本，后台日志出现 DeepLX 翻译失败记录。
 - 确认失败日志不包含 Discord token、NapCat token 或带签名的媒体 URL。
 
 ## 数据与文件
 
 - `data/` 下生成 SQLite 数据库。
 - `media-cache/` 下生成水印后的 PNG 文件。
+- `media-cache/markdown/` 下生成 Markdown 原文截图 PNG 文件。
 - `data/`、`media-cache/`、`.env`、日志文件不会出现在 `git status` 的待提交列表中。

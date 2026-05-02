@@ -3,6 +3,7 @@ import type { AppDatabase } from "../shared/database.js";
 import type { Logger } from "../shared/logger.js";
 import type { DeliveryJob, NormalizedDiscordMessage } from "../shared/types.js";
 import { ImageProcessor } from "../media/imageProcessor.js";
+import { MarkdownImageRenderer } from "../media/markdownImageRenderer.js";
 import { DeepLxClient } from "./deepLxClient.js";
 import { NapCatClient } from "./napcatClient.js";
 
@@ -14,12 +15,14 @@ export interface DeliveryServiceOptions {
 
 export class DeliveryService {
   private readonly imageProcessor: ImageProcessor;
+  private readonly markdownRenderer: MarkdownImageRenderer;
   private readonly napcat: NapCatClient;
   private readonly deeplx: DeepLxClient;
   private retryTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: DeliveryServiceOptions) {
     this.imageProcessor = new ImageProcessor(options.config);
+    this.markdownRenderer = new MarkdownImageRenderer(options.config);
     this.napcat = new NapCatClient(options.config.napcat);
     this.deeplx = new DeepLxClient(options.config.deeplx);
   }
@@ -64,11 +67,17 @@ export class DeliveryService {
       return;
     }
 
+    const [translatedText, markdownImage, images] = await Promise.all([
+      this.translateMessage(message),
+      this.markdownRenderer.renderMessage(message),
+      this.imageProcessor.prepareImages(message)
+    ]);
+
     const payload = {
       message,
-      translatedText: await this.translateMessage(message),
-      markdownImage: null,
-      images: await this.imageProcessor.prepareImages(message)
+      translatedText,
+      markdownImage,
+      images
     };
 
     const jobIds = routes.map((route) =>
