@@ -85,6 +85,7 @@ describe("buildForwardNodes", () => {
     expect(nodes[1]?.data.content[0]?.type).toBe("image");
     expect(nodes[2]?.data.content).toHaveLength(2);
     expect(nodes[2]?.data.content.every((segment) => segment.type === "image")).toBe(true);
+    expect(nodes.map((node) => node.data.name)).toEqual(["Alice", "Alice", "Alice"]);
     expect(JSON.stringify(nodes)).not.toContain("hello");
     expect(JSON.stringify(nodes)).not.toContain("你好");
     expect(nodes.flatMap((node) => node.data.content).some((segment) => segment.type === "text")).toBe(false);
@@ -180,6 +181,7 @@ describe("buildForwardNodes", () => {
 
     expect(nodes).toHaveLength(2);
     expect(nodes[0]?.data.content[0]?.type).toBe("image");
+    expect(nodes.map((node) => node.data.name)).toEqual(["Alice", "Alice"]);
     expect(nodes[1]?.data.content).toEqual([
       {
         type: "text",
@@ -209,5 +211,47 @@ describe("buildForwardNodes", () => {
       "https://example.com/preview.png"
     ]);
     expect(buildOriginalLinksText("plain text only")).toBeNull();
+  });
+
+  it("falls back to the Discord source when the author name is blank", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-napcat-"));
+    const markdown = join(directory, "markdown.png");
+    await writeFile(markdown, Buffer.from("markdown"));
+
+    const payload: PreparedBridgePayload = {
+      message: {
+        id: "m1",
+        guildId: "g1",
+        channelId: "c1",
+        channelName: "announcements",
+        threadId: null,
+        threadName: null,
+        sourceId: "c1",
+        sourceName: "announcements",
+        authorId: "u1",
+        authorName: "   ",
+        authorAvatarUrl: null,
+        createdAt: new Date(0).toISOString(),
+        rawMarkdown: "**hello**",
+        text: "hello",
+        images: []
+      },
+      translatedText: null,
+      translatedImage: null,
+      markdownImage: {
+        attachmentId: "markdown-m1",
+        filename: "markdown.png",
+        mimeType: "image/png",
+        filePath: markdown,
+        size: 8,
+        width: 1,
+        height: 1
+      },
+      images: []
+    };
+
+    const nodes = await buildForwardNodes(payload);
+
+    expect(nodes.map((node) => node.data.name)).toEqual(["announcements"]);
   });
 });

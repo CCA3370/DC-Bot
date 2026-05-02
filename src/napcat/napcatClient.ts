@@ -159,12 +159,13 @@ function parseMessageId(data: unknown, action: string) {
 
 export async function buildForwardNodes(payload: PreparedBridgePayload): Promise<OneBotForwardNode[]> {
   const nodes: OneBotForwardNode[] = [];
+  const senderName = buildForwardNodeSenderName(payload);
 
   if (payload.translatedImage) {
     nodes.push({
       type: "node",
       data: {
-        name: payload.message.authorName,
+        name: senderName,
         uin: "10000",
         content: [await buildImageSegment(payload.translatedImage)]
       }
@@ -175,7 +176,7 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
     nodes.push({
       type: "node",
       data: {
-        name: payload.message.sourceName,
+        name: senderName,
         uin: "10000",
         content: [await buildImageSegment(payload.markdownImage)]
       }
@@ -191,7 +192,7 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
     nodes.push({
       type: "node",
       data: {
-        name: payload.message.sourceName,
+        name: senderName,
         uin: "10000",
         content
       }
@@ -203,7 +204,7 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
     nodes.push({
       type: "node",
       data: {
-        name: payload.message.sourceName,
+        name: senderName,
         uin: "10000",
         content: [{ type: "text", data: { text: originalLinksText } }]
       }
@@ -251,6 +252,16 @@ export function buildOriginalLinksText(rawMarkdown: string) {
   }
 
   return ["原文链接：", ...links.map((link, index) => `${index + 1}. ${link}`)].join("\n");
+}
+
+function buildForwardNodeSenderName(payload: PreparedBridgePayload) {
+  const authorName = payload.message.authorName.trim();
+  if (authorName.length > 0) {
+    return authorName;
+  }
+
+  const sourceName = payload.message.sourceName.trim();
+  return sourceName.length > 0 ? sourceName : "Discord";
 }
 
 async function buildImageSegment(image: ProcessedImageAsset): Promise<OneBotMessageSegment> {
