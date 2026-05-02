@@ -103,7 +103,7 @@ export class AdminServer {
 
       const sessionId = await this.getSessionId(request);
       if (!sessionId) {
-        await reply.code(401).send({ error: "未登录" });
+        return reply.code(401).send({ error: "未登录" });
       }
     });
 

@@ -48,7 +48,13 @@ if (!config.discord.token) {
     }
   });
 
-  await discord.start();
+  try {
+    await discord.start();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error("Discord client failed to start", { error: errorMessage });
+    database.recordEventLog("error", "discord", "Discord client failed to start", { error: errorMessage });
+  }
 }
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
