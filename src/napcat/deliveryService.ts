@@ -3,6 +3,7 @@ import type { AppDatabase } from "../shared/database.js";
 import type { Logger } from "../shared/logger.js";
 import type { DeliveryJob, NormalizedDiscordMessage } from "../shared/types.js";
 import { ImageProcessor } from "../media/imageProcessor.js";
+import { DeepLxClient } from "./deepLxClient.js";
 import { NapCatClient } from "./napcatClient.js";
 
 export interface DeliveryServiceOptions {
@@ -14,11 +15,13 @@ export interface DeliveryServiceOptions {
 export class DeliveryService {
   private readonly imageProcessor: ImageProcessor;
   private readonly napcat: NapCatClient;
+  private readonly deeplx: DeepLxClient;
   private retryTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: DeliveryServiceOptions) {
     this.imageProcessor = new ImageProcessor(options.config);
     this.napcat = new NapCatClient(options.config.napcat);
+    this.deeplx = new DeepLxClient(options.config.deeplx);
   }
 
   getNapCatConfig() {
@@ -27,6 +30,14 @@ export class DeliveryService {
 
   updateNapCatConfig(config: AppConfig["napcat"]) {
     this.napcat.updateConfig(config);
+  }
+
+  getDeepLxConfig() {
+    return this.deeplx.getConfig();
+  }
+
+  updateDeepLxConfig(config: AppConfig["deeplx"]) {
+    this.deeplx.updateConfig(config);
   }
 
   startRetryWorker() {
@@ -55,7 +66,7 @@ export class DeliveryService {
 
     const payload = {
       message,
-      translatedText: null,
+      translatedText: await this.translateMessage(message),
       markdownImage: null,
       images: await this.imageProcessor.prepareImages(message)
     };
@@ -133,6 +144,25 @@ export class DeliveryService {
       this.options.config.delivery.retryBaseSeconds * 2 ** exponent
     );
     return new Date(Date.now() + seconds * 1000).toISOString();
+  }
+
+  private async translateMessage(message: NormalizedDiscordMessage) {
+    const text = message.text.trim();
+    if (text.length === 0 || !this.deeplx.isConfigured()) {
+      return null;
+    }
+
+    try {
+      return await this.deeplx.translateToChinese(text);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.options.database.recordEventLog("warn", "deeplx", "DeepLX translation failed; sending markdown image without text", {
+        discordMessageId: message.id,
+        sourceId: message.sourceId,
+        error: errorMessage
+      });
+      return null;
+    }
   }
 
   private logError(message: string, error: unknown) {

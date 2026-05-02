@@ -21,8 +21,10 @@ export interface AdminServerOptions {
   logger: Logger;
   getDiscordGuildId: () => string;
   getNapCatConfig: () => AppConfig["napcat"];
+  getDeepLxConfig: () => AppConfig["deeplx"];
   setDiscordGuildId: (guildId: string) => Promise<void>;
   setNapCatConfig: (config: AppConfig["napcat"]) => Promise<void>;
+  setDeepLxConfig: (config: AppConfig["deeplx"]) => Promise<void>;
   syncDiscordChannels: () => Promise<void>;
 }
 
@@ -114,6 +116,7 @@ export class AdminServer {
     this.app.get("/api/status", async () => {
       const deliveryStats = this.options.database.getDeliveryStats();
       const napcatConfig = this.options.getNapCatConfig();
+      const deeplxConfig = this.options.getDeepLxConfig();
       return {
         discord: {
           guildId: this.options.getDiscordGuildId(),
@@ -122,6 +125,11 @@ export class AdminServer {
         napcat: {
           endpoint: napcatConfig.endpoint,
           accessTokenConfigured: napcatConfig.accessToken.length > 0
+        },
+        deeplx: {
+          endpoint: deeplxConfig.endpoint,
+          tokenConfigured: deeplxConfig.token.length > 0,
+          timeoutMs: deeplxConfig.timeoutMs
         },
         counts: {
           channels: this.options.database.countTable("discord_channels"),
@@ -156,6 +164,24 @@ export class AdminServer {
         napcat: {
           endpoint: nextConfig.endpoint,
           accessTokenConfigured: nextConfig.accessToken.length > 0
+        }
+      };
+    });
+
+    this.app.patch("/api/settings/deeplx", async (request) => {
+      const body = deeplxSettingsSchema.parse(request.body);
+      const current = this.options.getDeepLxConfig();
+      const nextConfig = {
+        endpoint: body.endpoint.replace(/\/+$/, ""),
+        token: body.clearToken ? "" : body.token.trim() || current.token,
+        timeoutMs: body.timeoutMs
+      };
+      await this.options.setDeepLxConfig(nextConfig);
+      return {
+        deeplx: {
+          endpoint: nextConfig.endpoint,
+          tokenConfigured: nextConfig.token.length > 0,
+          timeoutMs: nextConfig.timeoutMs
         }
       };
     });
@@ -362,8 +388,27 @@ const napcatSettingsSchema = z.object({
   clearAccessToken: z.boolean().optional().default(false)
 });
 
+const deeplxSettingsSchema = z.object({
+  endpoint: z
+    .string()
+    .trim()
+    .refine((value) => value.length === 0 || isUrl(value), "DeepLX 地址必须为空或有效 URL"),
+  token: z.string().optional().default(""),
+  clearToken: z.boolean().optional().default(false),
+  timeoutMs: z.coerce.number().int().positive("DeepLX 超时时间必须是正整数").max(60_000, "DeepLX 超时时间不能超过 60000ms")
+});
+
 function safeEqual(left: string, right: string) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function isUrl(value: string) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

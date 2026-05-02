@@ -293,6 +293,10 @@ nav button.active {
   grid-template-columns: 1fr minmax(230px, 310px) minmax(200px, 280px) auto auto;
 }
 
+.deeplx-card {
+  grid-template-columns: 1fr minmax(220px, 300px) minmax(170px, 230px) 110px auto auto;
+}
+
 .settings-card label {
   display: grid;
   gap: 6px;

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
   Activity,
   CheckCircle2,
+  Languages,
   ListRestart,
   LogOut,
   Plus,
@@ -28,6 +29,11 @@ interface StatusResponse {
   napcat: {
     endpoint: string;
     accessTokenConfigured: boolean;
+  };
+  deeplx: {
+    endpoint: string;
+    tokenConfigured: boolean;
+    timeoutMs: number;
   };
   counts: {
     channels: number;
@@ -57,6 +63,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [guildForm, setGuildForm] = useState("");
   const [napcatForm, setNapcatForm] = useState({ endpoint: "", accessToken: "", clearAccessToken: false });
+  const [deeplxForm, setDeeplxForm] = useState({ endpoint: "", token: "", clearToken: false, timeoutMs: 10000 });
   const [groupForm, setGroupForm] = useState({ groupId: "", name: "" });
   const [selectedNapCatGroupId, setSelectedNapCatGroupId] = useState("");
   const [routeForm, setRouteForm] = useState<{ sourceId: string; qqGroupIds: number[] }>({ sourceId: "", qqGroupIds: [] });
@@ -95,6 +102,7 @@ function App() {
       setStatus(nextStatus);
       setGuildForm(nextStatus.discord.guildId);
       setNapcatForm({ endpoint: nextStatus.napcat.endpoint, accessToken: "", clearAccessToken: false });
+      setDeeplxForm({ endpoint: nextStatus.deeplx.endpoint, token: "", clearToken: false, timeoutMs: nextStatus.deeplx.timeoutMs });
       setChannels(channelResponse.channels);
       setGroups(groupResponse.groups);
       setRoutes(routeResponse.routes);
@@ -159,6 +167,18 @@ function App() {
       setNapcatForm({ endpoint: response.napcat.endpoint, accessToken: "", clearAccessToken: false });
       await reloadAll();
     }, "NapCat 配置已保存");
+  }
+
+  async function saveDeepLxSettings() {
+    await mutate(async () => {
+      const response = await api<{ deeplx: StatusResponse["deeplx"] }>("/api/settings/deeplx", {
+        method: "PATCH",
+        body: JSON.stringify(deeplxForm)
+      });
+      setStatus((current) => (current ? { ...current, deeplx: response.deeplx } : current));
+      setDeeplxForm({ endpoint: response.deeplx.endpoint, token: "", clearToken: false, timeoutMs: response.deeplx.timeoutMs });
+      await reloadAll();
+    }, "DeepLX 配置已保存");
   }
 
   async function saveGroup() {
@@ -390,6 +410,8 @@ function App() {
             <Metric label="监听服务器" value={status.discord.guildId || "未设置"} tone={status.discord.guildId ? "ok" : "warn"} />
             <Metric label="NapCat" value={status.napcat.endpoint} />
             <Metric label="NapCat Token" value={status.napcat.accessTokenConfigured ? "已配置" : "未配置"} tone={status.napcat.accessTokenConfigured ? "ok" : "warn"} />
+            <Metric label="DeepLX" value={status.deeplx.endpoint || "未启用"} tone={status.deeplx.endpoint ? "ok" : "warn"} />
+            <Metric label="DeepLX Token" value={status.deeplx.tokenConfigured ? "已配置" : "未配置"} tone={status.deeplx.tokenConfigured ? "ok" : "warn"} />
             <Metric label="来源" value={String(status.counts.channels)} />
             <Metric label="QQ群" value={String(status.counts.groups)} />
             <Metric label="路由" value={String(status.counts.routes)} />
@@ -447,6 +469,54 @@ function App() {
               <button onClick={() => void saveNapCatSettings()} disabled={busy || !napcatForm.endpoint}>
                 <RefreshCw size={17} />
                 保存 NapCat
+              </button>
+            </section>
+            <section className="wide settings-card deeplx-card">
+              <div className="settings-copy">
+                <strong>DeepLX 翻译</strong>
+                <span>启用后 Discord 正文会翻译成中文文本；失败时只发送 Markdown 原文图片。</span>
+              </div>
+              <label>
+                DeepLX HTTP 地址
+                <input
+                  value={deeplxForm.endpoint}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, endpoint: event.target.value })}
+                  placeholder="http://127.0.0.1:1188"
+                />
+              </label>
+              <label>
+                Token
+                <input
+                  value={deeplxForm.token}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, token: event.target.value })}
+                  type="password"
+                  autoComplete="new-password"
+                  disabled={deeplxForm.clearToken}
+                  placeholder={status.deeplx.tokenConfigured ? "已配置，留空保留当前 token" : "没有 token 可留空"}
+                />
+              </label>
+              <label>
+                超时 ms
+                <input
+                  value={deeplxForm.timeoutMs}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, timeoutMs: Number(event.target.value) })}
+                  type="number"
+                  min={1000}
+                  max={60000}
+                  step={500}
+                />
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={deeplxForm.clearToken}
+                  onChange={(event) => setDeeplxForm({ ...deeplxForm, clearToken: event.target.checked, token: "" })}
+                  type="checkbox"
+                />
+                清除已保存 token
+              </label>
+              <button onClick={() => void saveDeepLxSettings()} disabled={busy}>
+                <Languages size={17} />
+                保存 DeepLX
               </button>
             </section>
             <section className="wide action-row">

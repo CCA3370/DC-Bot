@@ -14,8 +14,13 @@ let activeNapCatConfig = {
   endpoint: database.getSetting("napcat.endpoint") ?? config.napcat.endpoint,
   accessToken: database.getSetting("napcat.access_token") ?? config.napcat.accessToken
 };
+let activeDeepLxConfig = {
+  endpoint: database.getSetting("deeplx.endpoint") ?? config.deeplx.endpoint,
+  token: database.getSetting("deeplx.token") ?? config.deeplx.token,
+  timeoutMs: loadStoredTimeout(database.getSetting("deeplx.timeout_ms"), config.deeplx.timeoutMs)
+};
 const delivery = new DeliveryService({
-  config: { ...config, napcat: activeNapCatConfig },
+  config: { ...config, napcat: activeNapCatConfig, deeplx: activeDeepLxConfig },
   database,
   logger: createLogger("delivery")
 });
@@ -34,6 +39,7 @@ const admin = new AdminServer({
   logger: createLogger("admin"),
   getDiscordGuildId: () => activeDiscordGuildId,
   getNapCatConfig: () => activeNapCatConfig,
+  getDeepLxConfig: () => activeDeepLxConfig,
   setNapCatConfig: async (napcatConfig) => {
     activeNapCatConfig = {
       endpoint: napcatConfig.endpoint,
@@ -45,6 +51,22 @@ const admin = new AdminServer({
     database.recordEventLog("info", "admin", "Updated NapCat settings", {
       endpoint: activeNapCatConfig.endpoint,
       accessTokenConfigured: activeNapCatConfig.accessToken.length > 0
+    });
+  },
+  setDeepLxConfig: async (deeplxConfig) => {
+    activeDeepLxConfig = {
+      endpoint: deeplxConfig.endpoint,
+      token: deeplxConfig.token,
+      timeoutMs: deeplxConfig.timeoutMs
+    };
+    database.setSetting("deeplx.endpoint", activeDeepLxConfig.endpoint);
+    database.setSetting("deeplx.token", activeDeepLxConfig.token);
+    database.setSetting("deeplx.timeout_ms", String(activeDeepLxConfig.timeoutMs));
+    delivery.updateDeepLxConfig(activeDeepLxConfig);
+    database.recordEventLog("info", "admin", "Updated DeepLX settings", {
+      endpoint: activeDeepLxConfig.endpoint,
+      tokenConfigured: activeDeepLxConfig.token.length > 0,
+      timeoutMs: activeDeepLxConfig.timeoutMs
     });
   },
   setDiscordGuildId: async (guildId) => {
@@ -119,4 +141,9 @@ async function shutdown(signal: string) {
   await admin.close();
   database.close();
   process.exit(0);
+}
+
+function loadStoredTimeout(value: string | null, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }

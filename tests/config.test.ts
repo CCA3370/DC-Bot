@@ -9,6 +9,8 @@ describe("loadConfig", () => {
 
     expect(config.discord.guildId).toBe("");
     expect(config.napcat.endpoint).toBe("http://127.0.0.1:3000");
+    expect(config.deeplx.endpoint).toBe("");
+    expect(config.deeplx.timeoutMs).toBe(10000);
     expect(config.admin.port).toBe(8787);
   });
 
@@ -18,5 +20,19 @@ describe("loadConfig", () => {
     });
 
     expect(config.discord.guildId).toBe("123456789012345678");
+  });
+
+  it("normalizes DeepLX settings when explicitly provided", () => {
+    const config = loadConfig({
+      DEEPLX_ENDPOINT: " http://127.0.0.1:1188/// ",
+      DEEPLX_TOKEN: "deeplx-token",
+      DEEPLX_TIMEOUT_MS: "15000"
+    });
+
+    expect(config.deeplx).toEqual({
+      endpoint: "http://127.0.0.1:1188",
+      token: "deeplx-token",
+      timeoutMs: 15000
+    });
   });
 });

@@ -5,9 +5,9 @@ Discord 到 QQ/NapCat 桥接机器人。当前实现使用 Node.js 22+、TypeScr
 ## 功能范围
 
 - 监听后台配置的 Discord guild 文本频道和线程消息。
-- 将 Discord 文本转换为更适合 QQ 展示的纯文本。
+- 将 Discord 正文翻译为 DeepLX 中文文本，并保留原文 Markdown 用于图片渲染。
 - 下载图片附件，校验 MIME/大小，并在右下角添加 `#{来源频道名}` 或线程名水印。
-- 对每个目标 QQ 群发送一次 OneBot 合并转发：文本节点独立，图片集中在一个图片节点。
+- 对每个目标 QQ 群发送一次 OneBot 合并转发：中文译文文本节点、Markdown 原文图片节点、附件图片节点按顺序发送。
 - 合并转发成功后发送提醒：`⬆️有来自{来源频道名}的新消息，请留意查看哦~`。
 - SQLite 保存频道、QQ群、路由、投递队列、投递尝试、事件日志和后台会话。
 - 内置单管理员 Web 后台，支持频道同步、QQ群配置、路由配置、NapCat 测试、队列重发和日志查看。
@@ -47,6 +47,9 @@ pnpm dev:admin
 - `DISCORD_GUILD_ID`：可选初始 Discord 服务器 ID；也可以在后台面板中设置和修改。
 - `NAPCAT_ENDPOINT`：NapCat OneBot HTTP 地址，例如 `http://127.0.0.1:3000`。
 - `NAPCAT_ACCESS_TOKEN`：NapCat access token，没有则留空。
+- `DEEPLX_ENDPOINT`：DeepLX HTTP 地址，例如 `http://127.0.0.1:1188`；留空则不发送中文译文文本。
+- `DEEPLX_TOKEN`：DeepLX token，没有则留空。
+- `DEEPLX_TIMEOUT_MS`：DeepLX 翻译请求超时，默认 `10000`。
 - `ADMIN_PASSWORD`：后台登录密码。
 - `ADMIN_SESSION_SECRET`：后台签名 Cookie secret。
 - `SQLITE_PATH`：SQLite 数据库路径，默认 `./data/dc-bot.sqlite`。
@@ -67,11 +70,12 @@ http://127.0.0.1:8787
 1. 登录。
 2. 在“运行总览”里设置监听 Discord 服务器 ID。
 3. 在“运行总览”里配置 NapCat OneBot HTTP 地址和 access token。
-4. 在“来源”里同步 Discord 频道和线程。
-5. 在“路由”里从 NapCat 当前 QQ 群列表导入需要接收消息的群。
-6. 选择一个 Discord 来源，并勾选一个或多个 QQ 群保存路由。
-7. 在“运行总览”测试 NapCat 连接和测试发送。
-8. 在“发送队列”里查看失败任务并手动重发。
+4. 在“运行总览”里配置 DeepLX HTTP 地址和 token。
+5. 在“来源”里同步 Discord 频道和线程。
+6. 在“路由”里从 NapCat 当前 QQ 群列表导入需要接收消息的群。
+7. 选择一个 Discord 来源，并勾选一个或多个 QQ 群保存路由。
+8. 在“运行总览”测试 NapCat 连接和测试发送。
+9. 在“发送队列”里查看失败任务并手动重发。
 
 未配置路由的 Discord 消息会被忽略并写入事件日志。
 
@@ -118,4 +122,4 @@ pnpm build
 docker compose --env-file .env.compose.example config
 ```
 
-当前测试覆盖配置加载、Markdown 转纯文本、NapCat 合并转发 payload、SQLite 路由/队列状态和图片水印尺寸。
+当前测试覆盖配置加载、Markdown 转纯文本、DeepLX 请求/响应解析、NapCat 合并转发 payload、SQLite 路由/队列状态和图片水印尺寸。
