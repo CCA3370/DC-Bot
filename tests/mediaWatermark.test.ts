@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { addWatermark, buildImageWatermarkText } from "../src/media/imageProcessor.js";
+import { addWatermark, buildImageWatermarkText, fitImageWatermarkText } from "../src/media/imageProcessor.js";
 
 describe("addWatermark", () => {
   it("preserves image dimensions while adding a watermark overlay", async () => {
@@ -51,6 +51,46 @@ describe("addWatermark", () => {
     expect(buildImageWatermarkText({ authorName: " Alice ", sourceName: "announcements" })).toBe("Alice");
     expect(buildImageWatermarkText({ authorName: "   ", sourceName: "announcements" })).toBe("announcements");
     expect(buildImageWatermarkText({ authorName: "   ", sourceName: "   " })).toBe("Discord");
+  });
+
+  it("keeps long watermark names inside the image bounds", async () => {
+    const background = { r: 46, g: 125, b: 91 };
+    const input = await sharp({
+      create: {
+        width: 160,
+        height: 90,
+        channels: 3,
+        background
+      }
+    })
+      .png()
+      .toBuffer();
+
+    const output = await addWatermark(input, "VeryLongDiscordDisplayNameThatWouldOtherwiseOverflowTheImage");
+    const pixels = await sharp(output.buffer).removeAlpha().raw().toBuffer();
+    const metadata = await sharp(output.buffer).metadata();
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+
+    expect(output.width).toBe(160);
+    expect(output.height).toBe(90);
+    expect(readPixel(pixels, width, width - 1, height - 12)).toEqual(background);
+    expect(readPixel(pixels, width, width - 1, height - 2)).toEqual(background);
+  });
+
+  it("shrinks long watermark names before truncating them", () => {
+    const fitted = fitImageWatermarkText("ModeratelyLongDiscordName", 14, 6, 120);
+
+    expect(fitted.value).toBe("ModeratelyLongDiscordName");
+    expect(fitted.fontSize).toBeLessThan(14);
+    expect(fitted.fontSize).toBeGreaterThanOrEqual(6);
+  });
+
+  it("only truncates watermark names when the minimum font size still cannot fit", () => {
+    const fitted = fitImageWatermarkText("ExtremelyLongDiscordDisplayNameThatCannotFitEvenAtMinimumSize", 14, 6, 120);
+
+    expect(fitted.value.endsWith("...")).toBe(true);
+    expect(fitted.fontSize).toBe(6);
   });
 });
 

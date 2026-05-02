@@ -81,32 +81,36 @@ export class ImageProcessor {
   }
 }
 
-export async function addWatermark(input: Buffer, text: string) {
+export async function addWatermark(input: Buffer, rawText: string) {
   const base = sharp(input, { animated: false, limitInputPixels: 80_000_000 }).rotate();
   const metadata = await base.metadata();
   const width = metadata.width ?? 1024;
   const height = metadata.height ?? 1024;
-  const fontSize = Math.max(10, Math.round(width * 0.017));
+  const baseFontSize = Math.min(Math.max(9, Math.round(width * 0.014)), Math.max(9, Math.round(height * 0.12)));
+  const minFontSize = Math.max(6, Math.min(baseFontSize, Math.round(width * 0.006)));
+  const watermarkText = fitImageWatermarkText(rawText, baseFontSize, minFontSize, Math.max(24, width - 10));
+  const fontSize = watermarkText.fontSize;
   const paddingX = Math.max(4, Math.round(fontSize * 0.28));
   const paddingY = Math.max(3, Math.round(fontSize * 0.2));
   const strokeWidth = Math.max(1, Math.round(fontSize * 0.06));
-  const watermarkWidth = Math.min(width, estimateTextWidth(text, fontSize) + paddingX * 2 + strokeWidth * 2);
-  const watermarkHeight = Math.round(fontSize * 1.35 + paddingY * 2 + strokeWidth * 2);
+  const textX = width - paddingX - strokeWidth;
+  const textY = height - paddingY - strokeWidth - Math.ceil(fontSize * 0.18);
   const svg = `
-    <svg width="${watermarkWidth}" height="${watermarkHeight}" xmlns="http://www.w3.org/2000/svg">
-      <text x="${paddingX + strokeWidth}" y="${paddingY + strokeWidth + fontSize}"
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <text x="${textX}" y="${textY}"
         font-family="Segoe UI, Microsoft YaHei, sans-serif"
         font-size="${fontSize}"
         font-weight="600"
+        text-anchor="end"
         stroke="rgba(0,0,0,0.28)"
         stroke-width="${strokeWidth}"
         stroke-linejoin="round"
         paint-order="stroke fill"
-        fill="rgba(255,255,255,0.48)">${escapeXml(text)}</text>
+        fill="rgba(255,255,255,0.48)">${escapeXml(watermarkText.value)}</text>
     </svg>`;
 
   const buffer = await base
-    .composite([{ input: Buffer.from(svg), gravity: "southeast" }])
+    .composite([{ input: Buffer.from(svg), left: 0, top: 0 }])
     .png({ compressionLevel: 8 })
     .toBuffer();
 
@@ -121,6 +125,29 @@ export function buildImageWatermarkText(message: Pick<NormalizedDiscordMessage, 
 
   const sourceName = message.sourceName.trim();
   return sourceName.length > 0 ? sourceName : "Discord";
+}
+
+export function fitImageWatermarkText(value: string, baseFontSize: number, minFontSize: number, maxWidth: number) {
+  const normalized = value.trim() || "Discord";
+  for (let fontSize = baseFontSize; fontSize >= minFontSize; fontSize -= 1) {
+    if (estimateTextWidth(normalized, fontSize) <= maxWidth) {
+      return { value: normalized, fontSize };
+    }
+  }
+
+  let fitted = "";
+  for (const char of Array.from(normalized)) {
+    const candidate = `${fitted}${char}...`;
+    if (estimateTextWidth(candidate, minFontSize) > maxWidth) {
+      break;
+    }
+    fitted += char;
+  }
+
+  return {
+    value: fitted.length > 0 ? `${fitted}...` : "...",
+    fontSize: minFontSize
+  };
 }
 
 function estimateTextWidth(value: string, fontSize: number) {
