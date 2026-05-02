@@ -31,6 +31,7 @@ export interface NormalizedDiscordMessage {
   sourceName: string;
   authorId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   createdAt: string;
   rawMarkdown: string;
   text: string;

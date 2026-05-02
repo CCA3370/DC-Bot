@@ -43,6 +43,7 @@ export function normalizeDiscordMessage(message: Message<true>, guildId: string)
     sourceName: source.name,
     authorId: message.author.id,
     authorName: message.member?.displayName ?? message.author.globalName ?? message.author.username,
+    authorAvatarUrl: message.author.displayAvatarURL({ extension: "png", size: 128 }),
     createdAt: message.createdAt.toISOString(),
     rawMarkdown: message.content,
     text: markdownToPlainText(message.content, lookup),

@@ -26,7 +26,7 @@ markdown.renderer.rules.image = (tokens, index) => {
 export class MarkdownImageRenderer {
   private readonly cacheRoot: string;
 
-  constructor(config: Pick<AppConfig, "storage">) {
+  constructor(private readonly config: Pick<AppConfig, "storage" | "media" | "discord">) {
     this.cacheRoot = resolve(config.storage.mediaCacheDir);
   }
 
@@ -35,7 +35,9 @@ export class MarkdownImageRenderer {
       return null;
     }
 
-    const html = buildMarkdownDocument(message);
+    const html = buildMarkdownDocument(message, {
+      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
+    });
     return this.writeRenderedImage("markdown", message.id, message.rawMarkdown, html);
   }
 
@@ -50,8 +52,47 @@ export class MarkdownImageRenderer {
       sourceName: message.sourceName,
       createdAt: message.createdAt,
       translatedText: text
+    }, {
+      authorAvatarDataUri: await this.loadAuthorAvatarDataUri(message.authorAvatarUrl)
     });
     return this.writeRenderedImage("translation", message.id, text, html);
+  }
+
+  private async loadAuthorAvatarDataUri(avatarUrl: string | null) {
+    if (!avatarUrl) {
+      return null;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.discord.attachmentTimeoutMs);
+
+    try {
+      const response = await fetch(avatarUrl, { signal: controller.signal });
+      if (!response.ok) {
+        return null;
+      }
+
+      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "image/png";
+      if (!contentType.startsWith("image/") || contentType === "image/svg+xml") {
+        return null;
+      }
+
+      const contentLength = Number(response.headers.get("content-length") ?? "0");
+      if (contentLength > this.config.media.maxImageBytes) {
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.byteLength === 0 || buffer.byteLength > this.config.media.maxImageBytes) {
+        return null;
+      }
+
+      return `data:${contentType};base64,${buffer.toString("base64")}`;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async writeRenderedImage(
@@ -85,10 +126,18 @@ export class MarkdownImageRenderer {
   }
 }
 
-export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">) {
+export interface AvatarRenderOptions {
+  authorAvatarDataUri?: string | null;
+}
+
+export function buildMarkdownDocument(
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt" | "rawMarkdown">,
+  options: AvatarRenderOptions = {}
+) {
   const renderedBody = markdown.render(message.rawMarkdown.trim());
   const timestamp = formatTimestamp(message.createdAt);
   const authorInitials = getAuthorInitials(message.authorName);
+  const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -137,7 +186,7 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
       content: "";
       display: block;
       height: 7px;
-      background: linear-gradient(90deg, var(--teal), #2e7d5b 58%, var(--gold));
+      background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
     }
     .header {
       display: grid;
@@ -153,15 +202,21 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
     .avatar {
       width: 54px;
       height: 54px;
-      display: grid;
-      place-items: center;
       border: 1px solid rgba(23, 69, 62, 0.24);
       border-radius: 8px;
       background: var(--teal);
       color: #fff8e6;
+      line-height: 1;
+    }
+    .avatar-initials {
+      display: grid;
+      place-items: center;
       font-size: 18px;
       font-weight: 900;
-      line-height: 1;
+    }
+    .avatar-image {
+      display: block;
+      object-fit: cover;
     }
     .header strong,
     .header span {
@@ -381,7 +436,7 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
 <body>
   <article class="card" data-image-card>
     <header class="header">
-      <div class="avatar">${escapeHtml(authorInitials)}</div>
+      ${avatarHtml}
       <div>
         <strong>${escapeHtml(message.authorName)}</strong>
         <div class="meta-line">
@@ -398,10 +453,12 @@ export function buildMarkdownDocument(message: Pick<NormalizedDiscordMessage, "a
 }
 
 export function buildTranslationDocument(
-  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt"> & { translatedText: string }
+  message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName" | "createdAt"> & { translatedText: string },
+  options: AvatarRenderOptions = {}
 ) {
   const timestamp = formatTimestamp(message.createdAt);
   const authorInitials = getAuthorInitials(message.authorName);
+  const avatarHtml = renderAvatar(message.authorName, authorInitials, options.authorAvatarDataUri ?? null);
   const translatedText = escapeHtml(message.translatedText.trim());
 
   return `<!doctype html>
@@ -449,7 +506,7 @@ export function buildTranslationDocument(
       content: "";
       display: block;
       height: 7px;
-      background: linear-gradient(90deg, var(--green-dark), var(--green) 64%, var(--gold));
+      background: linear-gradient(90deg, #2563eb, #0ea5e9 45%, #f97316);
     }
     .header {
       display: grid;
@@ -463,15 +520,21 @@ export function buildTranslationDocument(
     .avatar {
       width: 54px;
       height: 54px;
-      display: grid;
-      place-items: center;
       border: 1px solid rgba(31, 107, 83, 0.22);
       border-radius: 8px;
       background: var(--green-dark);
       color: #fff9e8;
+      line-height: 1;
+    }
+    .avatar-initials {
+      display: grid;
+      place-items: center;
       font-size: 18px;
       font-weight: 900;
-      line-height: 1;
+    }
+    .avatar-image {
+      display: block;
+      object-fit: cover;
     }
     .title {
       display: flex;
@@ -548,7 +611,7 @@ export function buildTranslationDocument(
 <body>
   <article class="card" data-image-card>
     <header class="header">
-      <div class="avatar">${escapeHtml(authorInitials)}</div>
+      ${avatarHtml}
       <div>
         <div class="title">
           <strong>${escapeHtml(message.authorName)}</strong>
@@ -653,6 +716,14 @@ function getAuthorInitials(value: string) {
   }
 
   return Array.from(compact).slice(0, 2).join("");
+}
+
+function renderAvatar(authorName: string, authorInitials: string, authorAvatarDataUri: string | null) {
+  if (authorAvatarDataUri) {
+    return `<img class="avatar avatar-image" src="${escapeHtml(authorAvatarDataUri)}" alt="${escapeHtml(authorName)}" />`;
+  }
+
+  return `<div class="avatar avatar-initials">${escapeHtml(authorInitials)}</div>`;
 }
 
 function escapeHtml(value: string) {

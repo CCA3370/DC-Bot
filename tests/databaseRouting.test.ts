@@ -50,6 +50,7 @@ describe("AppDatabase routing and delivery jobs", () => {
         sourceName: "announcements",
         authorId: "author-1",
         authorName: "Alice",
+        authorAvatarUrl: null,
         createdAt: new Date(0).toISOString(),
         rawMarkdown: "hello",
         text: "hello",

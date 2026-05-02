@@ -41,20 +41,30 @@ export class NapCatClient {
     this.config = { ...config };
   }
 
-  async sendPreparedMessage(groupId: string, payload: PreparedBridgePayload) {
+  async sendPreparedMessage(groupId: string, payload: PreparedBridgePayload): Promise<string> {
     const messages = await buildForwardNodes(payload);
     if (messages.length === 0) {
-      return;
+      throw new Error("Prepared QQ forward message has no nodes to send");
     }
 
-    await this.callApi("send_group_forward_msg", {
+    const data = await this.callApi("send_group_forward_msg", {
       group_id: groupId,
       messages
     });
+    const messageId = parseMessageId(data, "send_group_forward_msg");
 
     await this.callApi("send_group_msg", {
       group_id: groupId,
       message: [{ type: "text", data: { text: `⬆️有来自${payload.message.sourceName}的新消息，请留意查看哦~` } }]
+    });
+
+    return messageId;
+  }
+
+  async forwardGroupSingleMessage(groupId: string, messageId: string) {
+    await this.callApi("forward_group_single_msg", {
+      group_id: groupId,
+      message_id: messageId
     });
   }
 
@@ -114,6 +124,24 @@ function parseGroupRow(row: unknown): NapCatGroup {
     memberCount: typeof group.member_count === "number" ? group.member_count : null,
     maxMemberCount: typeof group.max_member_count === "number" ? group.max_member_count : null
   };
+}
+
+function parseMessageId(data: unknown, action: string) {
+  if (!data || typeof data !== "object" || !("message_id" in data)) {
+    throw new Error(`NapCat ${action} did not return data.message_id`);
+  }
+
+  const messageId = (data as { message_id?: unknown }).message_id;
+  if (typeof messageId !== "string" && typeof messageId !== "number") {
+    throw new Error(`NapCat ${action} returned an invalid data.message_id`);
+  }
+
+  const normalized = String(messageId).trim();
+  if (normalized.length === 0) {
+    throw new Error(`NapCat ${action} returned an empty data.message_id`);
+  }
+
+  return normalized;
 }
 
 export async function buildForwardNodes(payload: PreparedBridgePayload): Promise<OneBotForwardNode[]> {

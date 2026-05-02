@@ -1,5 +1,9 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NapCatClient } from "../src/napcat/napcatClient.js";
+import type { PreparedBridgePayload } from "../src/shared/types.js";
 
 describe("NapCatClient runtime config", () => {
   afterEach(() => {
@@ -58,4 +62,100 @@ describe("NapCatClient runtime config", () => {
     ]);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:3000/get_group_list");
   });
+
+  it("returns the message_id from send_group_forward_msg", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-napcat-client-"));
+    const markdown = join(directory, "markdown.png");
+    await writeFile(markdown, Buffer.from("markdown"));
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { group_id?: string };
+      if (body.group_id === "10001") {
+        return new Response(JSON.stringify({ retcode: 0, data: { message_id: 12345 } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ retcode: 0, data: {} }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new NapCatClient({
+      endpoint: "http://127.0.0.1:3000",
+      accessToken: ""
+    });
+
+    await expect(client.sendPreparedMessage("10001", createPayload(markdown))).resolves.toBe("12345");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:3000/send_group_forward_msg");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("http://127.0.0.1:3000/send_group_msg");
+  });
+
+  it("rejects send_group_forward_msg responses without a message_id", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-napcat-client-"));
+    const markdown = join(directory, "markdown.png");
+    await writeFile(markdown, Buffer.from("markdown"));
+
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ retcode: 0, data: {} }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new NapCatClient({
+      endpoint: "http://127.0.0.1:3000",
+      accessToken: ""
+    });
+
+    await expect(client.sendPreparedMessage("10001", createPayload(markdown))).rejects.toThrow(
+      "NapCat send_group_forward_msg did not return data.message_id"
+    );
+  });
+
+  it("forwards a primary group message to another group through forward_group_single_msg", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ retcode: 0, data: {} }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new NapCatClient({
+      endpoint: "http://127.0.0.1:3000",
+      accessToken: ""
+    });
+
+    await client.forwardGroupSingleMessage("10002", "67890");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:3000/forward_group_single_msg");
+    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.body))).toEqual({
+      group_id: "10002",
+      message_id: "67890"
+    });
+  });
 });
+
+function createPayload(markdownPath: string): PreparedBridgePayload {
+  return {
+    message: {
+      id: "m1",
+      guildId: "g1",
+      channelId: "c1",
+      channelName: "announcements",
+      threadId: null,
+      threadName: null,
+      sourceId: "c1",
+      sourceName: "announcements",
+      authorId: "u1",
+      authorName: "Alice",
+      authorAvatarUrl: null,
+      createdAt: new Date(0).toISOString(),
+      rawMarkdown: "**hello**",
+      text: "hello",
+      images: []
+    },
+    translatedText: null,
+    translatedImage: null,
+    markdownImage: {
+      attachmentId: "markdown-m1",
+      filename: "markdown.png",
+      mimeType: "image/png",
+      filePath: markdownPath,
+      size: 8,
+      width: 1,
+      height: 1
+    },
+    images: []
+  };
+}
