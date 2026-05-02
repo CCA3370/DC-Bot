@@ -15,19 +15,20 @@ export class ImageProcessor {
 
   async prepareImages(message: NormalizedDiscordMessage): Promise<ProcessedImageAsset[]> {
     const assets: ProcessedImageAsset[] = [];
+    const watermarkText = buildImageWatermarkText(message);
     for (const image of message.images) {
-      assets.push(await this.downloadAndWatermark(image, message.sourceName));
+      assets.push(await this.downloadAndWatermark(image, watermarkText));
     }
     return assets;
   }
 
-  private async downloadAndWatermark(image: NormalizedImageAttachment, sourceName: string): Promise<ProcessedImageAsset> {
+  private async downloadAndWatermark(image: NormalizedImageAttachment, watermarkText: string): Promise<ProcessedImageAsset> {
     if (image.size > this.config.media.maxImageBytes) {
       throw new Error(`Discord image ${image.filename} exceeds ${this.config.media.maxImageBytes} bytes`);
     }
 
     const source = await this.downloadImage(image);
-    const watermarked = await addWatermark(source, `#${sourceName}`);
+    const watermarked = await addWatermark(source, watermarkText);
     const hash = createHash("sha256").update(watermarked.buffer).digest("hex").slice(0, 24);
     const day = new Date().toISOString().slice(0, 10);
     const directory = join(this.cacheDir, day);
@@ -85,10 +86,10 @@ export async function addWatermark(input: Buffer, text: string) {
   const metadata = await base.metadata();
   const width = metadata.width ?? 1024;
   const height = metadata.height ?? 1024;
-  const fontSize = Math.max(12, Math.round(width * 0.022));
-  const paddingX = Math.max(5, Math.round(fontSize * 0.35));
-  const paddingY = Math.max(4, Math.round(fontSize * 0.25));
-  const strokeWidth = Math.max(1, Math.round(fontSize * 0.08));
+  const fontSize = Math.max(10, Math.round(width * 0.017));
+  const paddingX = Math.max(4, Math.round(fontSize * 0.28));
+  const paddingY = Math.max(3, Math.round(fontSize * 0.2));
+  const strokeWidth = Math.max(1, Math.round(fontSize * 0.06));
   const watermarkWidth = Math.min(width, estimateTextWidth(text, fontSize) + paddingX * 2 + strokeWidth * 2);
   const watermarkHeight = Math.round(fontSize * 1.35 + paddingY * 2 + strokeWidth * 2);
   const svg = `
@@ -97,11 +98,11 @@ export async function addWatermark(input: Buffer, text: string) {
         font-family="Segoe UI, Microsoft YaHei, sans-serif"
         font-size="${fontSize}"
         font-weight="600"
-        stroke="rgba(0,0,0,0.45)"
+        stroke="rgba(0,0,0,0.28)"
         stroke-width="${strokeWidth}"
         stroke-linejoin="round"
         paint-order="stroke fill"
-        fill="rgba(255,255,255,0.72)">${escapeXml(text)}</text>
+        fill="rgba(255,255,255,0.48)">${escapeXml(text)}</text>
     </svg>`;
 
   const buffer = await base
@@ -110,6 +111,16 @@ export async function addWatermark(input: Buffer, text: string) {
     .toBuffer();
 
   return { buffer, width, height };
+}
+
+export function buildImageWatermarkText(message: Pick<NormalizedDiscordMessage, "authorName" | "sourceName">) {
+  const authorName = message.authorName.trim();
+  if (authorName.length > 0) {
+    return authorName;
+  }
+
+  const sourceName = message.sourceName.trim();
+  return sourceName.length > 0 ? sourceName : "Discord";
 }
 
 function estimateTextWidth(value: string, fontSize: number) {

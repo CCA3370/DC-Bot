@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { addWatermark } from "../src/media/imageProcessor.js";
+import { addWatermark, buildImageWatermarkText } from "../src/media/imageProcessor.js";
 
 describe("addWatermark", () => {
   it("preserves image dimensions while adding a watermark overlay", async () => {
@@ -15,7 +15,7 @@ describe("addWatermark", () => {
       .png()
       .toBuffer();
 
-    const output = await addWatermark(input, "#announcements");
+    const output = await addWatermark(input, "Alice");
     const metadata = await sharp(output.buffer).metadata();
 
     expect(output.width).toBe(320);
@@ -37,14 +37,20 @@ describe("addWatermark", () => {
       .png()
       .toBuffer();
 
-    const output = await addWatermark(input, "#announcements");
+    const output = await addWatermark(input, "Alice");
     const pixels = await sharp(output.buffer).removeAlpha().raw().toBuffer();
     const metadata = await sharp(output.buffer).metadata();
     const width = metadata.width ?? 0;
     const height = metadata.height ?? 0;
 
     expect(readPixel(pixels, width, width - 2, height - 2)).toEqual(background);
-    expect(countChangedPixels(pixels, width, height, background, { x: width - 220, y: height - 60, width: 220, height: 60 })).toBeLessThan(900);
+    expect(countChangedPixels(pixels, width, height, background, { x: width - 220, y: height - 60, width: 220, height: 60 })).toBeLessThan(320);
+  });
+
+  it("uses the Discord message author as the attachment watermark text", () => {
+    expect(buildImageWatermarkText({ authorName: " Alice ", sourceName: "announcements" })).toBe("Alice");
+    expect(buildImageWatermarkText({ authorName: "   ", sourceName: "announcements" })).toBe("announcements");
+    expect(buildImageWatermarkText({ authorName: "   ", sourceName: "   " })).toBe("Discord");
   });
 });
 
