@@ -267,6 +267,9 @@ describe("DeliveryService fanout delivery", () => {
     expect(database.getDeliveryJob(jobId)?.status).toBe("sent");
     expect(calls.filter((call) => call.action === "send_group_forward_msg").map((call) => call.body.group_id)).toEqual(["10001"]);
     expect(calls.some((call) => call.action === "forward_group_single_msg")).toBe(false);
+    expect(calls.filter((call) => call.action === "send_group_msg").map((call) => call.body)).toEqual([
+      { group_id: "10001", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] }
+    ]);
     expect(existsSync(mediaPath)).toBe(false);
 
     database.close();
@@ -285,6 +288,7 @@ function createService(database: AppDatabase, mediaCacheDir: string) {
   return new DeliveryService({
     config,
     database,
+    bridgeNoticeDelayMs: 0,
     logger: {
       debug: () => undefined,
       info: () => undefined,

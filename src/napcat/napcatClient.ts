@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import MarkdownIt from "markdown-it";
 import type { AppConfig } from "../shared/config.js";
 import type { NapCatGroup, PreparedBridgePayload, ProcessedImageAsset } from "../shared/types.js";
 
@@ -29,6 +30,12 @@ interface OneBotGroupRow {
   member_count?: number;
   max_member_count?: number;
 }
+
+const linkMarkdown = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true
+});
 
 export class NapCatClient {
   constructor(private config: AppConfig["napcat"]) {}
@@ -109,7 +116,12 @@ export class NapCatClient {
 }
 
 export function buildBridgeNoticeText(sourceName: string) {
-  return `⬆️有来自${sourceName}的新消息，请留意查看哦~`;
+  const normalized = sourceName.trim();
+  if (normalized.length === 0) {
+    return "⬆️有新的 Discord 消息，请留意查看哦~";
+  }
+
+  return `⬆️有来自${normalized}的新消息，请留意查看哦~`;
 }
 
 function parseGroupRow(row: unknown): NapCatGroup {
@@ -186,7 +198,59 @@ export async function buildForwardNodes(payload: PreparedBridgePayload): Promise
     });
   }
 
+  const originalLinksText = buildOriginalLinksText(payload.message.rawMarkdown);
+  if (originalLinksText) {
+    nodes.push({
+      type: "node",
+      data: {
+        name: payload.message.sourceName,
+        uin: "10000",
+        content: [{ type: "text", data: { text: originalLinksText } }]
+      }
+    });
+  }
+
   return nodes;
+}
+
+export function extractOriginalLinks(rawMarkdown: string) {
+  const links: string[] = [];
+  const seen = new Set<string>();
+  const collect = (tokens: ReturnType<typeof linkMarkdown.parse>) => {
+    for (const token of tokens) {
+      if (token.type === "link_open") {
+        const href = token.attrGet("href")?.trim();
+        if (href && /^https?:\/\//i.test(href) && !seen.has(href)) {
+          seen.add(href);
+          links.push(href);
+        }
+      }
+
+      if (token.type === "image") {
+        const src = token.attrGet("src")?.trim();
+        if (src && /^https?:\/\//i.test(src) && !seen.has(src)) {
+          seen.add(src);
+          links.push(src);
+        }
+      }
+
+      if (token.children) {
+        collect(token.children);
+      }
+    }
+  };
+
+  collect(linkMarkdown.parse(rawMarkdown, {}));
+  return links;
+}
+
+export function buildOriginalLinksText(rawMarkdown: string) {
+  const links = extractOriginalLinks(rawMarkdown);
+  if (links.length === 0) {
+    return null;
+  }
+
+  return ["原文链接：", ...links.map((link, index) => `${index + 1}. ${link}`)].join("\n");
 }
 
 async function buildImageSegment(image: ProcessedImageAsset): Promise<OneBotMessageSegment> {

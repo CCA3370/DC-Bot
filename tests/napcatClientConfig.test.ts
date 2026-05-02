@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NapCatClient } from "../src/napcat/napcatClient.js";
+import { buildBridgeNoticeText, NapCatClient } from "../src/napcat/napcatClient.js";
 import type { PreparedBridgePayload } from "../src/shared/types.js";
 
 describe("NapCatClient runtime config", () => {
@@ -123,6 +123,11 @@ describe("NapCatClient runtime config", () => {
       group_id: "10002",
       message_id: "67890"
     });
+  });
+
+  it("normalizes bridge notice source names", () => {
+    expect(buildBridgeNoticeText(" announcements ")).toBe("⬆️有来自announcements的新消息，请留意查看哦~");
+    expect(buildBridgeNoticeText("   ")).toBe("⬆️有新的 Discord 消息，请留意查看哦~");
   });
 });
 

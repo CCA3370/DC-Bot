@@ -18,11 +18,13 @@ import { NapCatClient } from "./napcatClient.js";
 
 const forwardFallbackThreshold = 3;
 const fallbackLogMessage = "Falling back to original send after repeated group forward failures";
+const defaultBridgeNoticeDelayMs = 1500;
 
 export interface DeliveryServiceOptions {
   config: AppConfig;
   database: AppDatabase;
   logger: Logger;
+  bridgeNoticeDelayMs?: number;
 }
 
 export class DeliveryService {
@@ -31,6 +33,7 @@ export class DeliveryService {
   private readonly napcat: NapCatClient;
   private readonly deeplx: DeepLxClient;
   private readonly mediaCacheRoot: string;
+  private readonly bridgeNoticeDelayMs: number;
   private readonly processingJobIds = new Set<number>();
   private retryTimer: NodeJS.Timeout | null = null;
 
@@ -40,6 +43,7 @@ export class DeliveryService {
     this.napcat = new NapCatClient(options.config.napcat);
     this.deeplx = new DeepLxClient(options.config.deeplx);
     this.mediaCacheRoot = resolve(options.config.storage.mediaCacheDir);
+    this.bridgeNoticeDelayMs = options.bridgeNoticeDelayMs ?? defaultBridgeNoticeDelayMs;
   }
 
   getNapCatConfig() {
@@ -169,7 +173,7 @@ export class DeliveryService {
   private async processLegacyJob(job: DeliveryJob) {
     try {
       await this.napcat.sendPreparedMessage(job.qqGroupId, job.payload);
-      await this.napcat.sendBridgeNotice(job.qqGroupId, job.payload.message.sourceName);
+      await this.sendDelayedBridgeNotice(job.qqGroupId, job.payload.message.sourceName);
       this.options.database.markDeliveryJobSent(job.id);
       this.options.database.recordEventLog("info", "delivery", "Delivered queued message to QQ group", {
         jobId: job.id,
@@ -266,7 +270,7 @@ export class DeliveryService {
         throw new Error(`Primary group ${fanout.primaryGroupId} has no message_id after send`);
       }
       if (!target.noticeSent) {
-        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
       }
       markTargetSent(target, "primary", primaryMessageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -306,7 +310,7 @@ export class DeliveryService {
         this.options.database.updateDeliveryJobPayload(job.id, payload);
       }
       if (!target.noticeSent) {
-        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
       }
       markTargetSent(target, "forward", fanout.primaryMessageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -349,7 +353,7 @@ export class DeliveryService {
         this.options.database.updateDeliveryJobPayload(job.id, payload);
       }
       if (!target.noticeSent) {
-        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+        await this.sendDelayedBridgeNotice(target.groupId, payload.message.sourceName);
       }
       markTargetSent(target, "original", messageId);
       this.options.database.updateDeliveryJobPayload(job.id, payload);
@@ -444,6 +448,13 @@ export class DeliveryService {
     const errorMessage = error instanceof Error ? error.message : String(error);
     this.options.logger.error(message, { error: errorMessage });
     this.options.database.recordEventLog("error", "delivery", message, { error: errorMessage });
+  }
+
+  private async sendDelayedBridgeNotice(groupId: string, sourceName: string) {
+    if (this.bridgeNoticeDelayMs > 0) {
+      await delay(this.bridgeNoticeDelayMs);
+    }
+    await this.napcat.sendBridgeNotice(groupId, sourceName);
   }
 }
 
@@ -556,4 +567,10 @@ function collectPayloadFilePaths(payload: PreparedBridgePayload) {
       ...collectLocalFilePaths(payload.translatedImage, payload.markdownImage, payload.images)
     ])
   ];
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolveDelay) => {
+    setTimeout(resolveDelay, ms);
+  });
 }
