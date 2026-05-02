@@ -22,7 +22,11 @@
 
 ## 准备
 
-在 Debian 12 服务器上安装或上传当前仓库，然后进入仓库根目录。
+在 Debian 12 服务器上只需要下载部署脚本。脚本会从 GitHub 拉取项目源码到 `/opt/dc-bot`。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CCA3370/DC-Bot/main/scripts/deploy-dcbot.sh -o /tmp/deploy-dcbot.sh
+```
 
 确认 Discord Bot 已开启这些 intent：
 
@@ -47,7 +51,7 @@ network_mode: host
 ## 交互式部署
 
 ```bash
-sudo -E bash scripts/deploy-dcbot.sh
+sudo -E bash /tmp/deploy-dcbot.sh
 ```
 
 脚本会提示输入：
@@ -60,10 +64,11 @@ sudo -E bash scripts/deploy-dcbot.sh
 ## 非交互部署
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/CCA3370/DC-Bot/main/scripts/deploy-dcbot.sh -o /tmp/deploy-dcbot.sh
 sudo DISCORD_TOKEN='你的 Discord token' \
   ADMIN_PASSWORD='强密码' \
   NAPCAT_ENDPOINT='http://127.0.0.1:3000' \
-  bash scripts/deploy-dcbot.sh --yes
+  bash /tmp/deploy-dcbot.sh --yes
 ```
 
 可选环境变量：
@@ -73,9 +78,21 @@ sudo DISCORD_TOKEN='你的 Discord token' \
 - `NAPCAT_ENDPOINT`：默认 `http://127.0.0.1:3000`
 - `ADMIN_HOST`：容器内监听地址，默认 `0.0.0.0`
 - `ADMIN_PORT`：host network 下直接监听的后台端口，默认 `8787`
+- `REPO_URL`：默认 `https://github.com/CCA3370/DC-Bot.git`
+- `REPO_REF`：默认 `main`，可设为分支、tag 或 commit
 - `APP_DIR`：默认 `/opt/dc-bot`
 - `CONFIG_DIR`：默认 `/etc/dc-bot`
 - `STATE_DIR`：默认 `/var/lib/dc-bot`
+
+部署 fork 或指定分支示例：
+
+```bash
+sudo REPO_URL='https://github.com/你的账号/DC-Bot.git' \
+  REPO_REF='main' \
+  DISCORD_TOKEN='你的 Discord token' \
+  ADMIN_PASSWORD='强密码' \
+  bash /tmp/deploy-dcbot.sh --yes
+```
 
 ## 部署后操作
 
@@ -128,13 +145,14 @@ NapCat 的具体安装参数请以官方 Shell/Installer 文档为准。本仓�
 
 ## 更新部署
 
-拉取或上传新代码后，在仓库根目录重新运行：
+项目更新后，重新下载最新部署脚本并运行：
 
 ```bash
-sudo -E bash scripts/deploy-dcbot.sh --yes
+curl -fsSL https://raw.githubusercontent.com/CCA3370/DC-Bot/main/scripts/deploy-dcbot.sh -o /tmp/deploy-dcbot.sh
+sudo -E bash /tmp/deploy-dcbot.sh --yes
 ```
 
-脚本会保留 `/etc/dc-bot/dc-bot.env` 中已有配置，除非你在当前命令环境里显式覆盖。应用代码会同步到 `/opt/dc-bot`，镜像会重新构建，SQLite 和媒体缓存保存在 `/var/lib/dc-bot`，不会随容器重建丢失。
+脚本会保留 `/etc/dc-bot/dc-bot.env` 中已有配置，除非你在当前命令环境里显式覆盖。应用代码会从 GitHub 更新到 `/opt/dc-bot`，镜像会重新构建，SQLite 和媒体缓存保存在 `/var/lib/dc-bot`，不会随容器重建丢失。
 
 ## 防火墙
 

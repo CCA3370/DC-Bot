@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 
 APP_NAME="dc-bot"
+REPO_URL="${REPO_URL:-https://github.com/CCA3370/DC-Bot.git}"
+REPO_REF="${REPO_REF:-main}"
 APP_DIR="${APP_DIR:-/opt/dc-bot}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/dc-bot}"
 STATE_DIR="${STATE_DIR:-/var/lib/dc-bot}"
@@ -13,7 +15,7 @@ FORCE="0"
 usage() {
   cat <<'EOF'
 Usage:
-  sudo -E bash scripts/deploy-dcbot.sh [--yes] [--force]
+  sudo -E bash /tmp/deploy-dcbot.sh [--yes] [--force]
 
 Environment variables:
   DISCORD_TOKEN             Required unless prompted interactively
@@ -24,13 +26,15 @@ Environment variables:
   ADMIN_PORT                Default: 8787
   ADMIN_PASSWORD            Required unless prompted interactively
   ADMIN_SESSION_SECRET      Auto-generated when empty
+  REPO_URL                  Default: https://github.com/CCA3370/DC-Bot.git
+  REPO_REF                  Default: main
   APP_DIR                   Default: /opt/dc-bot
   CONFIG_DIR                Default: /etc/dc-bot
   STATE_DIR                 Default: /var/lib/dc-bot
 
 Examples:
-  sudo -E bash scripts/deploy-dcbot.sh
-  sudo DISCORD_TOKEN='xxx' ADMIN_PASSWORD='change-this' bash scripts/deploy-dcbot.sh --yes
+  sudo -E bash /tmp/deploy-dcbot.sh
+  sudo DISCORD_TOKEN='xxx' ADMIN_PASSWORD='change-this' bash /tmp/deploy-dcbot.sh --yes
 EOF
 }
 
@@ -67,7 +71,7 @@ fail() {
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    fail "Please run as root, for example: sudo -E bash scripts/deploy-dcbot.sh"
+    fail "Please run as root, for example: sudo -E bash /tmp/deploy-dcbot.sh"
   fi
 }
 
@@ -141,7 +145,7 @@ confirm() {
     return
   fi
   local answer
-  read -r -p "Deploy ${APP_NAME} with Docker Compose to ${APP_DIR}? [y/N] " answer
+  read -r -p "Deploy ${APP_NAME} from ${REPO_URL}@${REPO_REF} to ${APP_DIR} with Docker Compose? [y/N] " answer
   case "${answer}" in
     y|Y|yes|YES)
       ;;
@@ -154,7 +158,7 @@ confirm() {
 install_system_packages() {
   log "Installing base Debian packages"
   apt-get update
-  apt-get install -y ca-certificates curl gnupg git rsync openssl
+  apt-get install -y ca-certificates curl gnupg git openssl
 }
 
 install_docker_engine() {
@@ -182,7 +186,7 @@ EOF
 
 ensure_dirs() {
   log "Creating application, configuration, and state directories"
-  install -d -m 0755 "${APP_DIR}"
+  install -d -m 0755 "$(dirname "${APP_DIR}")"
   install -d -m 0700 "${CONFIG_DIR}"
   install -d -m 0750 "${STATE_DIR}" "${STATE_DIR}/media-cache"
   chown -R 10001:10001 "${STATE_DIR}"
@@ -253,34 +257,65 @@ remove_legacy_systemd_unit() {
   fi
 }
 
-sync_application() {
-  local script_dir repo_root source_root target_root
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  repo_root="$(cd "${script_dir}/.." && pwd)"
-  source_root="$(realpath "${repo_root}")"
-  target_root="$(realpath -m "${APP_DIR}")"
+app_dir_has_entries() {
+  shopt -s nullglob dotglob
+  local entries=("${APP_DIR}"/*)
+  shopt -u nullglob dotglob
+  ((${#entries[@]} > 0))
+}
 
-  if [[ "${source_root}" == "${target_root}" ]]; then
-    log "Application is already in ${APP_DIR}; skipping source sync"
+prepare_app_dir_for_git_clone() {
+  if [[ -e "${APP_DIR}" && ! -d "${APP_DIR}" ]]; then
+    fail "${APP_DIR} exists but is not a directory"
+  fi
+
+  if [[ ! -d "${APP_DIR}" || -d "${APP_DIR}/.git" ]]; then
     return
   fi
 
-  log "Syncing application from ${repo_root} to ${APP_DIR}"
-  rsync -a --delete \
-    --exclude '.git/' \
-    --exclude '.env' \
-    --exclude '.env.local' \
-    --exclude '.env.compose' \
-    --exclude 'node_modules/' \
-    --exclude '.pnpm-store/' \
-    --exclude 'dist/' \
-    --exclude 'data/' \
-    --exclude 'media-cache/' \
-    --exclude '*.log' \
-    --exclude '*.sqlite' \
-    --exclude '*.sqlite-shm' \
-    --exclude '*.sqlite-wal' \
-    "${repo_root}/" "${APP_DIR}/"
+  if app_dir_has_entries; then
+    local backup_dir="${APP_DIR}.pre-git.$(date +%Y%m%d%H%M%S)"
+    log "Moving existing non-git application directory to ${backup_dir}"
+    mv "${APP_DIR}" "${backup_dir}"
+  else
+    rmdir "${APP_DIR}"
+  fi
+}
+
+checkout_repo_ref() {
+  cd "${APP_DIR}"
+  git fetch --prune --tags origin
+
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    fail "${APP_DIR} has uncommitted git changes; resolve them before deploying"
+  fi
+
+  git clean -fd
+
+  if git show-ref --verify --quiet "refs/remotes/origin/${REPO_REF}"; then
+    git checkout -B "${REPO_REF}" "origin/${REPO_REF}"
+  elif git show-ref --verify --quiet "refs/tags/${REPO_REF}"; then
+    git checkout --detach "refs/tags/${REPO_REF}"
+  else
+    git checkout --detach "${REPO_REF}"
+  fi
+
+  git clean -fd
+}
+
+pull_application_from_github() {
+  prepare_app_dir_for_git_clone
+
+  if [[ -d "${APP_DIR}/.git" ]]; then
+    log "Updating application repository in ${APP_DIR}"
+    git -C "${APP_DIR}" remote set-url origin "${REPO_URL}"
+    checkout_repo_ref
+    return
+  fi
+
+  log "Cloning ${REPO_URL} to ${APP_DIR}"
+  git clone "${REPO_URL}" "${APP_DIR}"
+  checkout_repo_ref
 }
 
 sync_compose_env_file() {
@@ -335,6 +370,7 @@ Admin:
 
 Files:
   Application: ${APP_DIR}
+  Repository: ${REPO_URL}@${REPO_REF}
   Environment: ${CONFIG_DIR}/dc-bot.env
   Compose env: ${COMPOSE_ENV_FILE}
   Data: ${STATE_DIR}
@@ -366,7 +402,7 @@ main() {
   ensure_dirs
   write_env_file
   remove_legacy_systemd_unit
-  sync_application
+  pull_application_from_github
   sync_compose_env_file
   deploy_compose_stack
   health_check
