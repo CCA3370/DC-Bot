@@ -73,6 +73,25 @@ http://127.0.0.1:8787
 
 未配置路由的 Discord 消息会被忽略并写入事件日志。
 
+## Debian 12 部署
+
+仓库提供一键部署脚本：
+
+```bash
+sudo -E bash scripts/deploy-debian12.sh
+```
+
+非交互部署示例：
+
+```bash
+sudo DISCORD_TOKEN='你的 Discord token' \
+  ADMIN_PASSWORD='强密码' \
+  NAPCAT_ENDPOINT='http://127.0.0.1:3000' \
+  bash scripts/deploy-debian12.sh --yes
+```
+
+脚本会安装 Node.js 22、启用 pnpm、构建应用、写入 systemd 服务并启动 `dc-bot.service`。详细说明见 [docs/debian12-deploy.md](docs/debian12-deploy.md)。
+
 ## 验证命令
 
 ```powershell
