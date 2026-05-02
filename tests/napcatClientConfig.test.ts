@@ -63,7 +63,7 @@ describe("NapCatClient runtime config", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:3000/get_group_list");
   });
 
-  it("returns the message_id from send_group_forward_msg", async () => {
+  it("returns the message_id from send_group_forward_msg without sending the notice", async () => {
     const directory = await mkdtemp(join(tmpdir(), "dc-bot-napcat-client-"));
     const markdown = join(directory, "markdown.png");
     await writeFile(markdown, Buffer.from("markdown"));
@@ -84,7 +84,7 @@ describe("NapCatClient runtime config", () => {
 
     await expect(client.sendPreparedMessage("10001", createPayload(markdown))).resolves.toBe("12345");
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:3000/send_group_forward_msg");
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("http://127.0.0.1:3000/send_group_msg");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects send_group_forward_msg responses without a message_id", async () => {

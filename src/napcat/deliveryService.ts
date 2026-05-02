@@ -31,6 +31,7 @@ export class DeliveryService {
   private readonly napcat: NapCatClient;
   private readonly deeplx: DeepLxClient;
   private readonly mediaCacheRoot: string;
+  private readonly processingJobIds = new Set<number>();
   private retryTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: DeliveryServiceOptions) {
@@ -148,17 +149,27 @@ export class DeliveryService {
   }
 
   async processJob(job: DeliveryJob) {
-    if (job.payload.fanout) {
-      await this.processFanoutJob(job);
+    if (this.processingJobIds.has(job.id)) {
       return;
     }
 
-    await this.processLegacyJob(job);
+    this.processingJobIds.add(job.id);
+    try {
+      if (job.payload.fanout) {
+        await this.processFanoutJob(job);
+        return;
+      }
+
+      await this.processLegacyJob(job);
+    } finally {
+      this.processingJobIds.delete(job.id);
+    }
   }
 
   private async processLegacyJob(job: DeliveryJob) {
     try {
       await this.napcat.sendPreparedMessage(job.qqGroupId, job.payload);
+      await this.napcat.sendBridgeNotice(job.qqGroupId, job.payload.message.sourceName);
       this.options.database.markDeliveryJobSent(job.id);
       this.options.database.recordEventLog("info", "delivery", "Delivered queued message to QQ group", {
         jobId: job.id,
@@ -194,7 +205,7 @@ export class DeliveryService {
       }
 
       if (target.groupId === fanout.primaryGroupId) {
-        await this.sendPrimaryFanoutTarget(payload, fanout, target, failedTargets);
+        await this.sendPrimaryFanoutTarget(job, payload, fanout, target, failedTargets);
         continue;
       }
 
@@ -233,15 +244,32 @@ export class DeliveryService {
   }
 
   private async sendPrimaryFanoutTarget(
+    job: DeliveryJob,
     payload: PreparedBridgePayload,
     fanout: FanoutDeliveryState,
     target: FanoutTargetState,
     failedTargets: Array<{ groupId: string; error: string }>
   ) {
     try {
-      const primaryMessageId = await this.napcat.sendPreparedMessage(target.groupId, payload);
-      fanout.primaryMessageId = primaryMessageId;
+      if (!fanout.primaryMessageId) {
+        const primaryMessageId = await this.napcat.sendPreparedMessage(target.groupId, payload);
+        fanout.primaryMessageId = primaryMessageId;
+        checkpointTargetForward(payload, target, "primary", primaryMessageId);
+        this.options.database.updateDeliveryJobPayload(job.id, payload);
+      } else if (target.primaryMessageId !== fanout.primaryMessageId) {
+        checkpointTargetForward(payload, target, "primary", fanout.primaryMessageId);
+        this.options.database.updateDeliveryJobPayload(job.id, payload);
+      }
+
+      const primaryMessageId = fanout.primaryMessageId;
+      if (!primaryMessageId) {
+        throw new Error(`Primary group ${fanout.primaryGroupId} has no message_id after send`);
+      }
+      if (!target.noticeSent) {
+        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+      }
       markTargetSent(target, "primary", primaryMessageId);
+      this.options.database.updateDeliveryJobPayload(job.id, payload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       markTargetFailed(target, errorMessage);
@@ -268,17 +296,23 @@ export class DeliveryService {
       return;
     }
 
+    const needsForward = target.primaryMessageId !== fanout.primaryMessageId || target.deliveryMethod !== "forward";
+    let forwarded = false;
     try {
-      if (target.primaryMessageId !== fanout.primaryMessageId) {
+      if (needsForward) {
         await this.napcat.forwardGroupSingleMessage(target.groupId, fanout.primaryMessageId);
-        target.primaryMessageId = fanout.primaryMessageId;
-        target.deliveryMethod = "forward";
+        forwarded = true;
+        checkpointTargetForward(payload, target, "forward", fanout.primaryMessageId);
+        this.options.database.updateDeliveryJobPayload(job.id, payload);
       }
-      await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+      if (!target.noticeSent) {
+        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+      }
       markTargetSent(target, "forward", fanout.primaryMessageId);
+      this.options.database.updateDeliveryJobPayload(job.id, payload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (target.primaryMessageId !== fanout.primaryMessageId) {
+      if (needsForward && !forwarded) {
         target.forwardFailureCount += 1;
       }
       markTargetFailed(target, errorMessage);
@@ -295,6 +329,7 @@ export class DeliveryService {
   ) {
     if (!target.fallbackLogged) {
       target.fallbackLogged = true;
+      this.options.database.updateDeliveryJobPayload(job.id, payload);
       this.options.database.recordEventLog("warn", "delivery", fallbackLogMessage, {
         discordMessageId: job.discordMessageId,
         sourceId: job.sourceId,
@@ -307,8 +342,17 @@ export class DeliveryService {
     }
 
     try {
-      const messageId = await this.napcat.sendPreparedMessage(target.groupId, payload);
+      const hasFallbackMessage = target.deliveryMethod === "original" && target.primaryMessageId !== null;
+      const messageId = hasFallbackMessage ? target.primaryMessageId! : await this.napcat.sendPreparedMessage(target.groupId, payload);
+      if (!hasFallbackMessage) {
+        checkpointTargetForward(payload, target, "original", messageId);
+        this.options.database.updateDeliveryJobPayload(job.id, payload);
+      }
+      if (!target.noticeSent) {
+        await this.napcat.sendBridgeNotice(target.groupId, payload.message.sourceName);
+      }
       markTargetSent(target, "original", messageId);
+      this.options.database.updateDeliveryJobPayload(job.id, payload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       markTargetFailed(target, errorMessage);
@@ -474,6 +518,23 @@ function markTargetSent(target: FanoutTargetState, deliveryMethod: FanoutTargetS
 function markTargetFailed(target: FanoutTargetState, errorMessage: string) {
   target.status = "failed";
   target.lastError = errorMessage;
+}
+
+function checkpointTargetForward(
+  payload: PreparedBridgePayload,
+  target: FanoutTargetState,
+  deliveryMethod: FanoutTargetState["deliveryMethod"],
+  primaryMessageId: string
+) {
+  target.status = "pending";
+  target.deliveryMethod = deliveryMethod;
+  target.primaryMessageId = primaryMessageId;
+  target.noticeSent = false;
+  target.lastError = null;
+  target.sentAt = null;
+  if (payload.fanout && target.groupId === payload.fanout.primaryGroupId) {
+    payload.fanout.primaryMessageId = primaryMessageId;
+  }
 }
 
 function collectLocalFilePaths(

@@ -51,11 +51,7 @@ export class NapCatClient {
       group_id: groupId,
       messages
     });
-    const messageId = parseMessageId(data, "send_group_forward_msg");
-
-    await this.sendBridgeNotice(groupId, payload.message.sourceName);
-
-    return messageId;
+    return parseMessageId(data, "send_group_forward_msg");
   }
 
   async sendBridgeNotice(groupId: string, sourceName: string) {

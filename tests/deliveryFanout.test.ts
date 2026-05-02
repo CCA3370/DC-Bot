@@ -57,6 +57,14 @@ describe("DeliveryService fanout delivery", () => {
       { group_id: "10002", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] },
       { group_id: "10003", message: [{ type: "text", data: { text: "⬆️有来自announcements的新消息，请留意查看哦~" } }] }
     ]);
+    expect(calls.map((call) => [call.action, call.body.group_id])).toEqual([
+      ["send_group_forward_msg", "10001"],
+      ["send_group_msg", "10001"],
+      ["forward_group_single_msg", "10002"],
+      ["send_group_msg", "10002"],
+      ["forward_group_single_msg", "10003"],
+      ["send_group_msg", "10003"]
+    ]);
     expect(existsSync(mediaPath)).toBe(false);
 
     database.close();
@@ -67,6 +75,7 @@ describe("DeliveryService fanout delivery", () => {
     const mediaPath = await writeCachedImage(directory, "markdown.png");
     const database = new AppDatabase(join(directory, "test.sqlite"));
     const service = createService(database, directory);
+    let jobId = 0;
     let secondaryNoticeAttempts = 0;
     const calls = mockNapCatCalls((call) => {
       if (call.action === "send_group_forward_msg") {
@@ -75,13 +84,19 @@ describe("DeliveryService fanout delivery", () => {
       if (call.action === "send_group_msg" && call.body.group_id === "10002") {
         secondaryNoticeAttempts += 1;
         if (secondaryNoticeAttempts === 1) {
+          expect(getTarget(database, jobId, "10002")).toMatchObject({
+            status: "pending",
+            deliveryMethod: "forward",
+            primaryMessageId: "9001",
+            noticeSent: false
+          });
           return failedResponse("notice blocked");
         }
       }
       return okResponse({});
     });
 
-    const jobId = database.createDeliveryJob(
+    jobId = database.createDeliveryJob(
       "m1",
       "source-1",
       "10001",
@@ -114,6 +129,44 @@ describe("DeliveryService fanout delivery", () => {
     });
     expect(calls.filter((call) => call.action === "forward_group_single_msg")).toHaveLength(1);
     expect(calls.filter((call) => call.action === "send_group_msg" && call.body.group_id === "10002")).toHaveLength(2);
+    expect(existsSync(mediaPath)).toBe(false);
+
+    database.close();
+  });
+
+  it("does not process the same delivery job concurrently", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-fanout-"));
+    const mediaPath = await writeCachedImage(directory, "markdown.png");
+    const database = new AppDatabase(join(directory, "test.sqlite"));
+    const service = createService(database, directory);
+    const forwardStarted = deferred<void>();
+    const releaseForward = deferred<void>();
+    const calls = mockNapCatCalls(async (call) => {
+      if (call.action === "send_group_forward_msg") {
+        forwardStarted.resolve();
+        await releaseForward.promise;
+        return okResponse({ message_id: "9001" });
+      }
+      return okResponse({});
+    });
+
+    const jobId = database.createDeliveryJob(
+      "m1",
+      "source-1",
+      "10001",
+      createPayload(mediaPath, createFanout(["10001", "10002"], "10001"))
+    );
+
+    const firstRun = service.processJobById(jobId);
+    await forwardStarted.promise;
+    const secondRun = service.processJobById(jobId);
+    releaseForward.resolve();
+    await Promise.all([firstRun, secondRun]);
+
+    expect(database.getDeliveryJob(jobId)?.status).toBe("sent");
+    expect(calls.filter((call) => call.action === "send_group_forward_msg")).toHaveLength(1);
+    expect(calls.filter((call) => call.action === "forward_group_single_msg")).toHaveLength(1);
+    expect(calls.filter((call) => call.action === "send_group_msg")).toHaveLength(2);
     expect(existsSync(mediaPath)).toBe(false);
 
     database.close();
@@ -308,7 +361,7 @@ function getTarget(database: AppDatabase, jobId: number, groupId: string) {
   return target!;
 }
 
-function mockNapCatCalls(handler: (call: ApiCall) => Response) {
+function mockNapCatCalls(handler: (call: ApiCall) => Response | Promise<Response>) {
   const calls: ApiCall[] = [];
   vi.stubGlobal(
     "fetch",
@@ -321,6 +374,17 @@ function mockNapCatCalls(handler: (call: ApiCall) => Response) {
     })
   );
   return calls;
+}
+
+function deferred<T = void>() {
+  let resolve!: (value?: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
 }
 
 function okResponse(data: Record<string, unknown>) {
