@@ -42,3 +42,42 @@ export interface QqGroup {
   name: string;
   isActive: boolean;
 }
+
+export interface RouteTarget {
+  routeId: number;
+  sourceId: string;
+  qqGroupId: number;
+  groupId: string;
+  groupName: string;
+}
+
+export type DeliveryJobStatus = "pending" | "sent" | "failed";
+
+export interface DeliveryJob {
+  id: number;
+  discordMessageId: string;
+  sourceId: string;
+  qqGroupId: string;
+  status: DeliveryJobStatus;
+  payload: PreparedBridgePayload;
+  errorMessage: string | null;
+  attemptCount: number;
+  nextAttemptAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProcessedImageAsset {
+  attachmentId: string;
+  filename: string;
+  mimeType: "image/png";
+  filePath: string;
+  size: number;
+  width: number;
+  height: number;
+}
+
+export interface PreparedBridgePayload {
+  message: NormalizedDiscordMessage;
+  images: ProcessedImageAsset[];
+}
