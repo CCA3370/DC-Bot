@@ -315,7 +315,7 @@ export class AppDatabase {
          WHERE channel_routes.source_id = ?
           AND channel_routes.is_active = 1
           AND qq_groups.is_active = 1
-         ORDER BY qq_groups.name ASC`
+         ORDER BY channel_routes.id ASC`
       )
       .all(sourceId) as unknown as RouteTargetRow[];
 
@@ -373,6 +373,16 @@ export class AppDatabase {
   getDeliveryJob(id: number): DeliveryJob | null {
     const row = this.db.prepare(`SELECT * FROM delivery_jobs WHERE id = ?`).get(id) as unknown as DeliveryJobRow | undefined;
     return row ? parseDeliveryJobRow(row) : null;
+  }
+
+  updateDeliveryJobPayload(id: number, payload: PreparedBridgePayload) {
+    this.db
+      .prepare(
+        `UPDATE delivery_jobs
+         SET payload_json = ?, updated_at = ?
+         WHERE id = ?`
+      )
+      .run(JSON.stringify(payload), new Date().toISOString(), id);
   }
 
   getDeliveryStats(): DeliveryStats {

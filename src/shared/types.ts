@@ -114,10 +114,33 @@ export interface ProcessedImageAsset {
   height: number;
 }
 
+export type FanoutTargetStatus = "pending" | "sent" | "failed";
+export type FanoutDeliveryMethod = "primary" | "forward" | "original";
+
+export interface FanoutTargetState {
+  groupId: string;
+  status: FanoutTargetStatus;
+  deliveryMethod: FanoutDeliveryMethod;
+  primaryMessageId: string | null;
+  forwardFailureCount: number;
+  fallbackLogged: boolean;
+  lastError: string | null;
+  sentAt: string | null;
+}
+
+export interface FanoutDeliveryState {
+  targetGroupIds: string[];
+  primaryGroupId: string;
+  primaryMessageId: string | null;
+  targets: FanoutTargetState[];
+}
+
 export interface PreparedBridgePayload {
   message: NormalizedDiscordMessage;
   translatedText: string | null;
   translatedImage: ProcessedImageAsset | null;
   markdownImage: ProcessedImageAsset | null;
   images: ProcessedImageAsset[];
+  localFilePaths?: string[];
+  fanout?: FanoutDeliveryState;
 }

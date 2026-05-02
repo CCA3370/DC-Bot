@@ -74,4 +74,35 @@ describe("AppDatabase routing and delivery jobs", () => {
 
     database.close();
   });
+
+  it("returns active routes in route creation order for fanout primary selection", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "dc-bot-db-"));
+    const database = new AppDatabase(join(directory, "test.sqlite"));
+
+    database.upsertDiscordChannels([
+      {
+        id: "discord-channel-1",
+        guildId: "guild-1",
+        parentId: null,
+        name: "announcements",
+        type: "channel",
+        isActive: true
+      }
+    ]);
+    database.upsertQqGroup("20002", "Zulu");
+    database.upsertQqGroup("10001", "Alpha");
+
+    const groups = database.listQqGroups();
+    const zulu = groups.find((group) => group.groupId === "20002");
+    const alpha = groups.find((group) => group.groupId === "10001");
+    expect(zulu).toBeDefined();
+    expect(alpha).toBeDefined();
+
+    database.upsertChannelRoute("discord-channel-1", zulu!.id);
+    database.upsertChannelRoute("discord-channel-1", alpha!.id);
+
+    expect(database.listActiveRoutesForSource("discord-channel-1").map((route) => route.groupId)).toEqual(["20002", "10001"]);
+
+    database.close();
+  });
 });
