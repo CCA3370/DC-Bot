@@ -41,7 +41,7 @@ export class DeepLxClient {
         },
         body: JSON.stringify({
           text: sourceText,
-          source_lang: "EN",
+          source_lang: "auto",
           target_lang: "ZH"
         })
       });

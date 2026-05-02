@@ -27,7 +27,7 @@ describe("DeepLxClient", () => {
         }),
         body: JSON.stringify({
           text: "hello",
-          source_lang: "EN",
+          source_lang: "auto",
           target_lang: "ZH"
         })
       })
